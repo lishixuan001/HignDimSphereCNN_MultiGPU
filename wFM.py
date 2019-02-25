@@ -16,8 +16,9 @@ class wFMLayer(nn.Module):
         super(wFMLayer, self).__init__()
         #Initial input is B * N * D * C ----> B * N1 * D * C'
         #dont forget to normalize w in dim 0
-        self.w1 = nn.Parameter(torch.randn(in_channels, num_neighbor))
-        self.w2 = nn.Parameter(torch.randn(out_channels, in_channels))
+        # self.w1 = nn.Parameter(torch.randn(in_channels, num_neighbor))
+        # self.w2 = nn.Parameter(torch.randn(out_channels, in_channels))
+        self.weights = nn.Parameter(torch.randn(in_channels, num_neighbor, out_channels))
         self.neighbors = num_neighbor
         self.out_channels = out_channels
 
@@ -63,25 +64,26 @@ class wFMLayer(nn.Module):
 
       #if (1 in torch.isnan(self.weight).numpy()):
           #st()
-      # q_p_s = q_p_s.repeat(1, 1, 1, 1, m)
-      # q_p_s = q_p_s.view(B, N, D, C, k, m)
+      q_p_s = q_p_s.repeat(1, 1, 1, 1, m)
+      q_p_s = q_p_s.view(B, N, D, C, k, m)
+      weights = weightNormalize(self.weights)
 
       # print(self.weight.shape)
       # print(q_p_s.shape)
 
-      weighted = q_p_s * transformed_w1
-      weighted = torch.mean(weighted, dim = -1)
+      # weighted = q_p_s * transformed_w1
+      # weighted = torch.mean(weighted, dim = -1)
 #       print(weighted.shape)
 #       print(transformed_w2.shape)
-      weighted_sum = torch.matmul(weighted, transformed_w2)
+      # weighted_sum = torch.matmul(weighted, transformed_w2)
 
       
       #print(weighted_sum.shape)
 
-      #torch.matmul(q_p_s, self.weight) #q_p_s * self.weight\
+      torch.matmul(q_p_s, weights) #q_p_s * self.weight\
 
-      # weighted_sum = torch.mean(weighted, 4)
-      # weighted_sum = torch.mean(weighted_sum, 3) #B*N*D*M
+      weighted_sum = torch.mean(weighted, 4)
+      weighted_sum = torch.mean(weighted_sum, 3) #B*N*D*M
       #weighted_sum = torch.mean(weighted, -2)
       #print(1 in torch.isnan(weighted_sum).numpy())
       v_mag = torch.norm(weighted_sum, dim=2)
