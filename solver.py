@@ -29,9 +29,9 @@ def eval(test_iterator, model, grid, sigma):
 
 
 
-def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr):
+def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
     logger=Logger(log_dir)
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu
     model = ManifoldNet(10, 15).cuda()
     model = torch.nn.DataParallel(model)
     model = model.cuda()
@@ -88,8 +88,9 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=1e-2 , type=float, metavar='N', help='sigma of sdt')
-
+    parser.add_argument('--gpu', default='1,2',  type=str, metavar='XXX', help='GPU number')
+    
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
     train_data_dir = os.path.join(args.data_path, "train.hdf5")
-    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr)
+    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr, args.gpu)
