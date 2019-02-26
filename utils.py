@@ -17,7 +17,7 @@ def sdt(inputs, grid, sigma):
     temp = x.unsqueeze(-1).repeat( 1,1,1,mesh.shape[-1])
     temp = temp - mesh.unsqueeze(0).unsqueeze(0).cuda()#torch.from_numpy(np.expand_dims(np.expand_dims(mesh, 0),0)).cuda()
     out = torch.sum(temp**2, -2)
-    out = torch.exp(-out/(2*sigma))
+    out = torch.exp(-out/(2*sigma**2))
     norms = torch.norm(out, dim = 2, keepdim=True)
     out = (out/norms).unsqueeze(-1)    
     return out

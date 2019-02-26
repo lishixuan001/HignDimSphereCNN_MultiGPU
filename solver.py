@@ -29,13 +29,13 @@ def eval(test_iterator, model, grid, sigma):
 
 
 
-def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir):
+def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr):
     logger=Logger(log_dir)
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
     model = ManifoldNet(10, 15).cuda()
     model = torch.nn.DataParallel(model)
     model = model.cuda()
-    optim = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optim = torch.optim.Adam(model.parameters(), lr=baselr)
     test_iterator = utils.load_data(test_data_dir, batch_size=10)
     train_iterator = utils.load_data(train_data_dir, batch_size=batch_size)
     for epoch in range(train_iter):  # loop over the dataset multiple times
@@ -62,7 +62,6 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             # print statistics
             running_loss.append( loss.item() )
             # if i % log_interval == 0:
-            print(np.mean(running_loss))
 
             #     file = open("log.txt","w+")
             #     file.write(str(loss.item()))
@@ -74,7 +73,7 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
         print(str(np.mean(running_loss))+" "+str(acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
-        running_loss = []
+        torch.save(net.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
 
     print('Finished Training')
     logger.close()
@@ -86,10 +85,11 @@ if __name__ == '__main__':
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
     parser.add_argument('--grid', default=10 , type=int, metavar='N', help='grid of sdt')
-    parser.add_argument('--sigma', default=0.01 , type=float, metavar='N', help='sigma of sdt')
+    parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
+    parser.add_argument('--baselr', default=1e-2 , type=float, metavar='N', help='sigma of sdt')
 
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
     train_data_dir = os.path.join(args.data_path, "train.hdf5")
-    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir)
+    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr)
