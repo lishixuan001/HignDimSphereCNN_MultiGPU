@@ -1,9 +1,9 @@
-import torch 
+import torch
 import time
 import torch.nn as nn
 import torch.nn.functional as F
 from utils import *
-import h5py 
+import h5py
 from pdb import set_trace as st
 
 def weightNormalize(weights_in):
@@ -28,14 +28,14 @@ class wFMLayer(nn.Module):
       #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
       B, N, D, C = point_set.shape
 
-      #assert(N >= neighbor_size) #make sure we can get 
+      #assert(N >= neighbor_size) #make sure we can get
       k=self.neighbors #Tis is number of neighbors
-      
+
       idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
       idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
       k2 = knn(adj_mtr, k=k) #B*N*k
       k2 = k2+idx
-      
+
       ptcld = point_set.view(B*N, D, C) #reshape pointset to BN * DC
       ptcld = ptcld.view(B*N, D*C)
       #st()
@@ -75,9 +75,9 @@ class wFMLayer(nn.Module):
       # weighted = torch.mean(weighted, dim = -1)
 #       print(weighted.shape)
 #       print(transformed_w2.shape)
-      # weighted_sum = torch.matmul(weighted, transformed_w2)
+      weighted_sum = torch.matmul(weighted, transformed_w2)
 
-      
+
       #print(weighted_sum.shape)
       weighted = torch.mul(q_p_s, weights) #q_p_s * self.weight\
 
@@ -95,7 +95,7 @@ class wFMLayer(nn.Module):
       # print(self.weight)
       # print(1 in torch.isnan(self.weight).numpy())
       return out
-    
+
     ## to do: implement inverse exponential mapping
     def forward(self, x, adj_mtr):
         return self.wFM_on_sphere(x, adj_mtr)
@@ -140,7 +140,7 @@ class Last(nn.Module):
       normed_w = F.normalize(unweighted_sum, p=2, dim=2)
       sin_vmag = torch.sin(v_mag).repeat(1, D).view(B, N, D)
       out = north_pole_cos_vmag + sin_vmag*normed_w
-      
+
       out = out.unsqueeze(-1)
       x_ = torch.transpose(point_set, 2, 3)
       # print(point_set.shape)
@@ -149,7 +149,7 @@ class Last(nn.Module):
       res = torch.acos(torch.clamp(res, -1, 1))
       #print("last layer "+str(1 in torch.isnan(res).numpy()))
       return torch.mean(res, dim = 1) #res.view(B, N*C)
-    
+
     ## to do: implement inverse exponential mapping
     def forward(self, x):
         # print(self.wFM_on_sphere(x))
