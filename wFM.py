@@ -33,7 +33,7 @@ class wFMLayer(nn.Module):
 
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
-        k2 = knn(adj_mtr, k=k) #B*N*k
+        k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = k2+idx
 
         ptcld = point_set.view(B*N, D, C) #reshape pointset to BN * DC
@@ -70,7 +70,7 @@ class wFMLayer(nn.Module):
 
         # print(self.weight.shape)
         # print(q_p_s.shape)
-        weighted = q_p_s * transformed_w1  
+        weighted = q_p_s * transformed_w1
         weighted = torch.mean(weighted, dim = -1)
         #print(weighted.shape)
         # print(transformed_w2.shape)
@@ -126,12 +126,12 @@ class Last(nn.Module):
         theta_sin = theta_sin.view(B, N, D, C)
 
         q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
-        
+
         unweighted_sum = torch.mean(q_p_s, 3, keepdim= True) #B*N*D
         dist = torch.norm(unweighted_sum - q_p_s, p=2, dim=2)
-        
+
         return torch.mean(dist, dim = 1)
-    
+
         '''#distance in terms of cosine
         #for each channel compute distance from mean to get B*N*C reshape to -> B*NC (can also do global maxpool)
         #print(1 in torch.isnan(unweighted_sum).numpy())

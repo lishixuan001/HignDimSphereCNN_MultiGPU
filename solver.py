@@ -61,6 +61,7 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             # file.close()
             # print statistics
             running_loss.append( loss.item() )
+            print(np.mean(running_loss) )
             # if i % log_interval == 0:
 
             #     file = open("log.txt","w+")
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=1e-2 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--gpu', default='1,2',  type=str, metavar='XXX', help='GPU number')
-    
+
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
     train_data_dir = os.path.join(args.data_path, "train.hdf5")
