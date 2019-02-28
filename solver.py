@@ -11,7 +11,7 @@ import utils
 import h5py
 from pdb import set_trace as st
 import argparse
-from logger import Logger
+#from logger import Logger
 
 #trainloader = dataloader.getLoader("./mnistPC/train.hdf5", 80, 'train')
 
@@ -30,10 +30,10 @@ def eval(test_iterator, model, grid, sigma):
 
 
 def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
-    logger=Logger(log_dir)
+    #logger=Logger(log_dir)
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu
     model = ManifoldNet(10, 15).cuda()
-    model = torch.nn.DataParallel(model)
+    #model = torch.nn.DataParallel(model)
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=baselr)
     test_iterator = utils.load_data(test_data_dir, batch_size=10)
@@ -41,7 +41,10 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
     for epoch in range(train_iter):  # loop over the dataset multiple times
         running_loss = []
         cls_criterion = torch.nn.CrossEntropyLoss().cuda()
+        print("Here")
+        st()
         for i, (inputs, labels) in enumerate(train_iterator):
+            print("Now here!")
             # get the inputs
             #inputs, labels = data
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
