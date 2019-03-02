@@ -49,7 +49,8 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             optim.zero_grad()
             adj = utils.pairwise_distance(inputs)
             # forward + backward + optimize
-            outputs = model(utils.sdt(inputs, grid, sigma), adj)
+            inputs = utils.sdt(inputs, grid, sigma)
+            outputs = model(inputs*inputs, adj)
             #print(1 in torch.isnan(outputs).numpy())
             #print(labels.squeeze())
             #loss = F.cross_entropy(outputs, labels.squeeze())
