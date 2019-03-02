@@ -43,23 +43,25 @@ def pairwise_distance(point_cloud):
     if og_batch_size == 1:
         point_cloud = point_cloud.unsqueeze(0) #torch.expand_dims(point_cloud, 0)
 
-    if len(point_cloud.shape) == 3:
-        point_cloud_transpose = point_cloud.permute(0, 2, 1)
-        #torch.transpose(point_cloud, perm=[0, 2, 1])
-        point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
-        point_cloud_inner = -2*point_cloud_inner
-        point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
-        point_cloud_square_tranpose = point_cloud_square.permute(0, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
-        return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
+    if len(point_cloud.shape) == 4:
+        a, b, c, d = point_cloud.shape
+        point_cloud = point_cloud.view(a, b, c*d)
+    point_cloud_transpose = point_cloud.permute(0, 2, 1)
+    #torch.transpose(point_cloud, perm=[0, 2, 1])
+    point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
+    point_cloud_inner = -2*point_cloud_inner
+    point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
+    point_cloud_square_tranpose = point_cloud_square.permute(0, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
+    return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
         ##KL divergence is essentially dot product of P(i) and log(P(i)/Q(i))
-    else:
-        point_cloud_transpose = point_cloud.permute(0, 3, 2, 1)
-        #torch.transpose(point_cloud, perm=[0, 2, 1])
-        point_cloud_inner = torch.bmm(point_cloud, point_cloud_transpose)
-        point_cloud_inner = -2*point_cloud_inner
-        point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
-        point_cloud_square_tranpose = point_cloud_square.permute(0, 3, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
-        return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
+    # else:
+    #     point_cloud_transpose = point_cloud.permute(0, 3, 2, 1)
+    #     #torch.transpose(point_cloud, perm=[0, 2, 1])
+    #     point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
+    #     point_cloud_inner = -2*point_cloud_inner
+    #     point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
+    #     point_cloud_square_tranpose = point_cloud_square.permute(0, 3, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
+    #     return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
 
 
 
