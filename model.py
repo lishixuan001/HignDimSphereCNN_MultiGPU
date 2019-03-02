@@ -9,9 +9,9 @@ from pdb import set_trace as st
 class ManifoldNet(nn.Module):
     def __init__(self, num_classes, num_neighbor, num_points):
         super(ManifoldNet, self).__init__()
-        self.wFM1 = wFM.wFMLayer(1, 10, num_neighbor, num_points, 0.7).cuda()
-        self.wFM2 = wFM.wFMLayer(10, 20, num_neighbor, int(num_points*0.7), 0.6).cuda()
-        self.wFM3 = wFM.wFMLayer(20, 40, num_neighbor, int(num_points*0.6)).cuda()
+        self.wFM1 = wFM.wFMLayer(1, 10, num_neighbor, num_points).cuda()
+        self.wFM2 = wFM.wFMLayer(10, 20, num_neighbor, int(num_points), 0.8).cuda()
+        self.wFM3 = wFM.wFMLayer(20, 40, num_neighbor, int(num_points*0.8), 0.7).cuda()
         self.last = wFM.Last(40, num_classes).cuda()
 
     def forward(self, x, neighborhood_matrix):

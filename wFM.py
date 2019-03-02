@@ -73,17 +73,17 @@ class wFMLayer(nn.Module):
         q_p_s = gathered
 
 
-        ######Project points onto tangent plane on north pole######
-        # north_pole_cos = torch.zeros(gathered.shape).cuda()
-        # theta = torch.acos(torch.clamp(gathered[:, :, :, 0, :], -1, 1)) #this is of shape B*N*K*C
-        # eps = (torch.ones(theta.shape)*0.0001).cuda()
-        # theta_sin = theta / (torch.sin(theta) + eps ) #theta/sin(theta) B*N*K*D*C
-        # north_pole_cos[:, :, :, 0, :] = torch.cos(theta) #cos(theta)
-        # q_p = gathered - north_pole_cos #q-cos(theta)
-        # theta_sin = theta_sin.repeat(1, 1, 1, D) #should be of shape B*N*K*D*C
-        # theta_sin = theta_sin.view(B, N, k, D, C)
-        # q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
-        ######End Code######
+        #####Project points onto tangent plane on north pole######
+        north_pole_cos = torch.zeros(gathered.shape).cuda()
+        theta = torch.acos(torch.clamp(gathered[:, :, :, 0, :], -1, 1)) #this is of shape B*N*K*C
+        eps = (torch.ones(theta.shape)*0.0001).cuda()
+        theta_sin = theta / (torch.sin(theta) + eps ) #theta/sin(theta) B*N*K*D*C
+        north_pole_cos[:, :, :, 0, :] = torch.cos(theta) #cos(theta)
+        q_p = gathered - north_pole_cos #q-cos(theta)
+        theta_sin = theta_sin.repeat(1, 1, 1, D) #should be of shape B*N*K*D*C
+        theta_sin = theta_sin.view(B, N, k, D, C)
+        q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
+        #####End Code######
 
         q_p_s = torch.transpose(q_p_s, 2, 3)
         q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
@@ -95,14 +95,14 @@ class wFMLayer(nn.Module):
         weighted_sum = torch.matmul(weighted, transformed_w2) 
 
 
-        ######Project points from tangent plane back to sphere######
-        # v_mag = torch.norm(weighted_sum, dim=2)
-        # north_pole_cos_vmag = torch.zeros(weighted_sum.shape).cuda()
-        # north_pole_cos_vmag[:, :, 0, :] = torch.cos(v_mag)
-        # normed_w = F.normalize(weighted_sum, p=2, dim=2)
-        # sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
-        # out = north_pole_cos_vmag + sin_vmag*normed_w
-        ######End Code#####
+        #####Project points from tangent plane back to sphere######
+        v_mag = torch.norm(weighted_sum, dim=2)
+        north_pole_cos_vmag = torch.zeros(weighted_sum.shape).cuda()
+        north_pole_cos_vmag[:, :, 0, :] = torch.cos(v_mag)
+        normed_w = F.normalize(weighted_sum, p=2, dim=2)
+        sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
+        out = north_pole_cos_vmag + sin_vmag*normed_w
+        #####End Code#####
         return weighted_sum
 
     ## to do: implement inverse exponential mapping
@@ -126,18 +126,18 @@ class Last(nn.Module):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
 
-        # #####Project points onto tangent plane on north pole#####
-        # north_pole_cos = torch.zeros(input_set.shape).cuda() #B*N*D*C
-        # theta = torch.acos(torch.clamp(input_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
-        # eps = (torch.ones(theta.shape)*0.0001).cuda()
-        # theta_sin = theta / (torch.sin(theta) + eps) #theta/sin(theta) B*N*K*D*C
-        # north_pole_cos[:, :, 0, :] = torch.cos(theta) #cos(theta)
-        # q_p = input_set - north_pole_cos #q-cos(theta)
-        # theta_sin = theta_sin.repeat(1, 1, D) #should be of shape B*N*K*D*C
-        # theta_sin = theta_sin.view(B, N, D, C)
-        # q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
-        # ######End Code######
-        q_p_s = input_set
+        #####Project points onto tangent plane on north pole#####
+        north_pole_cos = torch.zeros(input_set.shape).cuda() #B*N*D*C
+        theta = torch.acos(torch.clamp(input_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
+        eps = (torch.ones(theta.shape)*0.0001).cuda()
+        theta_sin = theta / (torch.sin(theta) + eps) #theta/sin(theta) B*N*K*D*C
+        north_pole_cos[:, :, 0, :] = torch.cos(theta) #cos(theta)
+        q_p = input_set - north_pole_cos #q-cos(theta)
+        theta_sin = theta_sin.repeat(1, 1, D) #should be of shape B*N*K*D*C
+        theta_sin = theta_sin.view(B, N, D, C)
+        q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
+        ######End Code######
+        #q_p_s = input_set
 
 
 
