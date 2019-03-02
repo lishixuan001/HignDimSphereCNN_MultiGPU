@@ -51,8 +51,8 @@ class wFMLayer(nn.Module):
         B, N, D, C = input_set.shape
         
         ####Downsampling####
-        input_set=input_set.view(B, N, D*C)
         if self.down_sample != 1:
+            input_set=input_set.view(B, N, D*C)
             N = int(self.down_sample*N)
             input_set = self.G(input_set)
             input_set.view(B, N, D, C)
@@ -62,7 +62,6 @@ class wFMLayer(nn.Module):
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
         if adj_mtr is None or self.down_sample != 1:
-            st()
             adj_mtr=pairwise_distance(input_set[:, :, 0, :].squeeze(2))
 
             print(adj_mtr[0])
