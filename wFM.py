@@ -50,8 +50,6 @@ class wFMLayer(nn.Module):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
         
-        print(self.w1)
-
         ####Downsampling####
         input_set=input_set.view(B, N, D*C)
         if self.down_sample != 1:
