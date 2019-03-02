@@ -61,6 +61,7 @@ class wFMLayer(nn.Module):
         m=self.out_channels
         weighted = q_p_s * transformed_w1
         weighted = torch.sum(weighted, dim = -1)
+        st()
         weighted_sum = torch.bmm(weighted, transformed_w2)
 
         ######Project points from tangent plane back to sphere######
