@@ -62,8 +62,9 @@ class wFMLayer(nn.Module):
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
         if adj_mtr is None or self.down_sample != 1:
-            adj_mtr=pairwise_distance(input_set[:, :, 0, :].squeeze(2))
             st()
+            adj_mtr=pairwise_distance(input_set[:, :, 0, :].squeeze(2))
+
             print(adj_mtr[0])
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = torch.Tensor(k2).long()+idx
