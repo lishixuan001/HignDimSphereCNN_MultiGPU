@@ -24,23 +24,23 @@ class wFMLayer(nn.Module):
 
 
     #Initial input is B * N * C * d ----> B * N1 * C * m
-    def wFM_on_sphere(self, point_set, adj_mtr):
+    def wFM_on_sphere(self, input_set, adj_mtr=None):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
-        B, N, D, C = point_set.shape
+        B, N, D, C = input_set.shape
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
+        if (!adj_mtr):
+            adj_mtr=utils.pairwise_distance(input_set)
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = k2+idx
-        ptcld = point_set.view(B*N, D, C) #reshape pointset to BN * DC
+        ptcld = input_set.view(B*N, D, C) #reshape pointset to BN * DC
         ptcld = ptcld.view(B*N, D*C)
         gathered=ptcld[k2] #get matrix of dimension B*N*K*(D*C)
         gathered = gathered.view(B, N, k, D, C)
 
-        ######Modified Euclidean Mean######
-        q_p_s = gathered * gathered
 
-        ######Actual Sphere Code######
+        ######Project points onto tangent plane on north pole######
         # north_pole_cos = torch.zeros(gathered.shape).cuda()
         # theta = torch.acos(torch.clamp(gathered[:, :, :, 0, :], -1, 1)) #this is of shape B*N*K*C
         # eps = (torch.ones(theta.shape)*0.0001).cuda()
@@ -50,7 +50,7 @@ class wFMLayer(nn.Module):
         # theta_sin = theta_sin.repeat(1, 1, 1, D) #should be of shape B*N*K*D*C
         # theta_sin = theta_sin.view(B, N, k, D, C)
         # q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
-        ######End Sphere Code######
+        ######End Code######
 
         q_p_s = torch.transpose(q_p_s, 2, 3)
         q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
@@ -58,21 +58,21 @@ class wFMLayer(nn.Module):
         transformed_w2 = weightNormalize(self.w2).transpose(1, 0)
         m=self.out_channels
         weighted = q_p_s * transformed_w1
-        weighted = torch.mean(weighted, dim = -1)
-        weighted_sum = torch.matmul(weighted, transformed_w2)
+        weighted = torch.sum(weighted, dim = -1)
+        weighted_sum = torch.bmm(weighted, transformed_w2)
 
-        ######Actual Sphere Code######
+        ######Project points from tangent plane back to sphere######
         # v_mag = torch.norm(weighted_sum, dim=2)
         # north_pole_cos_vmag = torch.zeros(weighted_sum.shape).cuda()
         # north_pole_cos_vmag[:, :, 0, :] = torch.cos(v_mag)
         # normed_w = F.normalize(weighted_sum, p=2, dim=2)
         # sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
         # out = north_pole_cos_vmag + sin_vmag*normed_w
-        ######End Sphere Code#####
+        ######End Code#####
         return weighted_sum
 
     ## to do: implement inverse exponential mapping
-    def forward(self, x, adj_mtr):
+    def forward(self, x, adj_mtr=None):
         return self.wFM_on_sphere(x, adj_mtr)
 
 class Last(nn.Module):
@@ -88,24 +88,21 @@ class Last(nn.Module):
 
 
     #Initial input is B * N * C * d ----> B * N1 * C * m
-    def FM_on_sphere(self, point_set):
+    def FM_on_sphere(self, input_set):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
-        B, N, D, C = point_set.shape
+        B, N, D, C = input_set.shape
 
-        ######Modified Euclidean Mean######
-        q_p_s = point_set * point_set
-
-        # #####Sphere Code#####
-        # north_pole_cos = torch.zeros(point_set.shape).cuda() #B*N*D*C
-        # theta = torch.acos(torch.clamp(point_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
+        # #####Project points onto tangent plane on north pole#####
+        # north_pole_cos = torch.zeros(input_set.shape).cuda() #B*N*D*C
+        # theta = torch.acos(torch.clamp(input_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
         # eps = (torch.ones(theta.shape)*0.0001).cuda()
         # theta_sin = theta / (torch.sin(theta) + eps) #theta/sin(theta) B*N*K*D*C
         # north_pole_cos[:, :, 0, :] = torch.cos(theta) #cos(theta)
-        # q_p = point_set - north_pole_cos #q-cos(theta)
+        # q_p = input_set - north_pole_cos #q-cos(theta)
         # theta_sin = theta_sin.repeat(1, 1, D) #should be of shape B*N*K*D*C
         # theta_sin = theta_sin.view(B, N, D, C)
         # q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
-        # ######End Sphere Code######
+        # ######End Code######
 
 
 
@@ -126,8 +123,8 @@ class Last(nn.Module):
         out = north_pole_cos_vmag + sin_vmag*normed_w
 
         out = out.unsqueeze(-1)
-        x_ = torch.transpose(point_set, 2, 3)
-        # print(point_set.shape)
+        x_ = torch.transpose(input_set, 2, 3)
+        # print(input_set.shape)
         res = torch.matmul(x_, out).squeeze(-1)
         #print(res.shape)
         res = torch.acos(torch.clamp(res, -1, 1))
