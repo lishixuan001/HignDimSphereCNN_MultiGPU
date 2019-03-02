@@ -33,7 +33,7 @@ class wFMLayer(nn.Module):
         if (adj_mtr is not None):
             adj_mtr=pairwise_distance(input_set)
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
-        k2 = torch.Tensor(k2)+idx
+        k2 = torch.Tensor(k2).float()+idx
         ptcld = input_set.view(B*N, D, C) #reshape pointset to BN * DC
         ptcld = ptcld.view(B*N, D*C)
         gathered=ptcld[k2] #get matrix of dimension B*N*K*(D*C)
