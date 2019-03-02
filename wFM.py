@@ -88,6 +88,11 @@ class wFMLayer(nn.Module):
         q_p_s = torch.transpose(q_p_s, 2, 3)
         q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
         transformed_w1 = weightNormalize(self.w1) 
+
+
+        if adj_mtr is not None:
+            print(transformed_w1)
+            st()
         transformed_w2 = weightNormalize(self.w2).transpose(1, 0)
         m=self.out_channels
         weighted = q_p_s * transformed_w1 
