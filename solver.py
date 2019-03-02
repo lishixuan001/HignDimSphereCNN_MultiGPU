@@ -38,9 +38,11 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
     optim = torch.optim.Adam(model.parameters(), lr=baselr)
     test_iterator = utils.load_data(test_data_dir, batch_size=10)
     train_iterator = utils.load_data(train_data_dir, batch_size=batch_size)
+    t = len(train_iterator)
     for epoch in range(train_iter):  # loop over the dataset multiple times
         running_loss = []
         cls_criterion = torch.nn.CrossEntropyLoss().cuda()
+        start = time.time()
         for i, (inputs, labels) in enumerate(train_iterator):
             # get the inputs
             #inputs, labels = data
@@ -62,17 +64,16 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             # file.close()
             # print statistics
             running_loss.append( loss.item() )
-            print(np.mean(running_loss) )
+            print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
             # if i % log_interval == 0:
 
             #     file = open("log.txt","w+")
             #     file.write(str(loss.item()))
             #     file.close()
-
+        end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
-        print("Epoch"+str(epoch))
         acc = eval(test_iterator, model, grid, sigma)
-        print(str(np.mean(running_loss))+" "+str(acc))
+        print("Epoch: "+str(epoch)+" finished, took "+str(end-start)+" seconds with loss: "+str(np.mean(running_loss))+" acc: "+str(acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
         torch.save(model.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
