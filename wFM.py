@@ -39,6 +39,7 @@ class wFMLayer(nn.Module):
         #self.weights = nn.Parameter(torch.randn(in_channels, num_neighbor, out_channels))
         self.neighbors = num_neighbor
         self.out_channels = out_channels
+        self.down_sample = down_sample
         self.G = GumblerSinkhorn(int(down_sample*num_points), num_points)
 
 
@@ -49,9 +50,10 @@ class wFMLayer(nn.Module):
 
         ####Downsampling####
         input_set=input_set.view(B, N, D*C)
-        N = int(down_sample*N)
-        input_set = self.G(input_set)
-        input_set.view(B, N, D, C)
+        if self.down_sample != 1:
+            N = int(self.down_sample*N)
+            input_set = self.G(input_set)
+            input_set.view(B, N, D, C)
         ####Finish Downsampling####
 
         k=self.neighbors #Tis is number of neighbors
