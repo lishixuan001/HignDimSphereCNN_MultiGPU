@@ -36,8 +36,8 @@ class wFMLayer(nn.Module):
         super(wFMLayer, self).__init__()
         #Initial input is B * N * D * C ----> B * N1 * D * C'
         #dont forget to normalize w in dim 0
-        self.w1 = nn.Parameter(torch.randn(in_channels, num_neighbor))
-        self.w2 = nn.Parameter(torch.randn(out_channels, in_channels))
+        self.w1 = nn.Parameter(torch.rand(in_channels, num_neighbor))
+        self.w2 = nn.Parameter(torch.rand(out_channels, in_channels))
         #self.weights = nn.Parameter(torch.randn(in_channels, num_neighbor, out_channels))
         self.neighbors = num_neighbor
         self.out_channels = out_channels
