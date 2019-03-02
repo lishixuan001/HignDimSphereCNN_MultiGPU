@@ -62,8 +62,6 @@ class wFMLayer(nn.Module):
         weighted = q_p_s * transformed_w1 
         weighted = torch.sum(weighted, dim = -1) # B*N*D*C
         weighted_sum = torch.matmul(weighted, transformed_w2) 
-        st()
-
 
 
         ######Project points from tangent plane back to sphere######
@@ -87,8 +85,8 @@ class Last(nn.Module):
         self.linear = nn.Linear(in_channels, out_channels)
         self.linear2 = nn.Sequential(
             nn.Linear(in_channels, out_channels),
-            nn.ReLU(),
-            nn.Linear(out_channels, out_channels)
+            # nn.ReLU(),
+            # nn.Linear(out_channels, out_channels)
         )
 
 
