@@ -31,7 +31,7 @@ class wFMLayer(nn.Module):
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
         if (adj_mtr is not None):
-            adj_mtr=utils.pairwise_distance(input_set)
+            adj_mtr=pairwise_distance(input_set)
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = k2+idx
         ptcld = input_set.view(B*N, D, C) #reshape pointset to BN * DC
