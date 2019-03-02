@@ -50,7 +50,6 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             # zero the parameter gradients
             optim.zero_grad()
             adj = utils.pairwise_distance(inputs)
-            print(adj)
             # forward + backward + optimize
             inputs = utils.sdt(inputs, grid, sigma)
             inputs = inputs*inputs
