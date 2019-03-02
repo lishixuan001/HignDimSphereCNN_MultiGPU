@@ -15,6 +15,10 @@ class ManifoldNet(nn.Module):
         self.last = wFM.Last(40, num_classes).cuda()
 
     def forward(self, x, neighborhood_matrix):
-        return self.last(self.wFM3(self.wFM2(self.wFM1(x, neighborhood_matrix))))
+    	fm1 = self.wFM1(x, neighborhood_matrix)
+    	fm2 = self.wFM2(fm1)
+    	fm3 = self.wFM3(fm2)
+    	print(self.wFM1.w1)
+        return self.last(fm3)
         #return self.last(self.wFM1(x, adj))
 
