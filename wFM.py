@@ -39,6 +39,8 @@ class wFMLayer(nn.Module):
         gathered=ptcld[k2] #get matrix of dimension B*N*K*(D*C)
         gathered = gathered.view(B, N, k, D, C)
 
+        q_p_s = gathered
+
 
         ######Project points onto tangent plane on north pole######
         # north_pole_cos = torch.zeros(gathered.shape).cuda()
