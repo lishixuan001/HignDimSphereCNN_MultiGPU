@@ -41,10 +41,7 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
     for epoch in range(train_iter):  # loop over the dataset multiple times
         running_loss = []
         cls_criterion = torch.nn.CrossEntropyLoss().cuda()
-        print("Here")
-        st()
         for i, (inputs, labels) in enumerate(train_iterator):
-            print("Now here!")
             # get the inputs
             #inputs, labels = data
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()

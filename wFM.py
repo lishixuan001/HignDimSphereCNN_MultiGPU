@@ -30,7 +30,7 @@ class wFMLayer(nn.Module):
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
-        if (!adj_mtr):
+        if (adj_mtr is not None):
             adj_mtr=utils.pairwise_distance(input_set)
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = k2+idx
