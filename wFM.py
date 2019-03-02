@@ -13,10 +13,10 @@ class GumblerSinkhorn(nn.Module):
         self.v = nn.Parameter(torch.randn(original_dim, 1))
     
     def transform(self, input_set, times=20):
-        weight = self.u * self.v.transpose(1, 0)
+        e_weight = self.u * self.v.transpose(1, 0)
         for i in range(times):
-            e_weight = torch.exp(weight)
-            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True).transpose(1, 0)
+            e_weight = torch.exp(e_weight)
+            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
             e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
         # print(torch.matmul(e_weight, input_set)).shape
         # print(e_weight.shape)
