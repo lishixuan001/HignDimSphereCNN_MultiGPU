@@ -75,7 +75,7 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
         print(str(np.mean(running_loss))+" "+str(acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
-        torch.save(net.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
+        torch.save(model.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
 
     print('Finished Training')
     logger.close()
