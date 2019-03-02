@@ -85,8 +85,8 @@ class wFMLayer(nn.Module):
         # q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
         # #####End Code######
 
-        q_p_s = torch.transpose(q_p_s, 2, 3)
-        q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
+        q_p_s = q_p_s.permute(0, 1, 3, 4, 2)
+        #q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
         transformed_w1 = weightNormalize(self.w1) 
 
 
