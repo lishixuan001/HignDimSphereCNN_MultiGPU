@@ -11,7 +11,7 @@ import utils
 import h5py
 from pdb import set_trace as st
 import argparse
-#from logger import Logger
+from logger import Logger
 
 #trainloader = dataloader.getLoader("./mnistPC/train.hdf5", 80, 'train')
 
