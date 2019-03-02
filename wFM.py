@@ -6,13 +6,30 @@ from utils import *
 import h5py
 from pdb import set_trace as st
 
+class GumblerSinkhorn(nn.Module):
+    def __init__(self, dim_decrease, original_dim):
+        self.u = nn.Parameter(torch.randn(dim_decrease, 1))
+        self.v = nn.Parameter(torch.randn(original_dim, 1))
+    
+    def transform(self, input_set, times=20):
+        weight = self.u * self.v.transpose(1, 0)
+        for i in range(times):
+            e_weight = torch.exp(weight)
+            e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
+            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
+        st()
+        return torch.matmul(e_weight, input_set)
+
+    def forward(self, inputs):
+        return self.transform(inputs)
+
 def weightNormalize(weights_in):
     weights = weights_in**2
     weights = weights/ torch.sum(weights, dim = 1, keepdim= True)
     return weights #torch.stack(out_all)
 
 class wFMLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, num_neighbor):
+    def __init__(self, in_channels, out_channels, num_neighbor, num_points, down_sample=1):
         super(wFMLayer, self).__init__()
         #Initial input is B * N * D * C ----> B * N1 * D * C'
         #dont forget to normalize w in dim 0
@@ -21,12 +38,21 @@ class wFMLayer(nn.Module):
         #self.weights = nn.Parameter(torch.randn(in_channels, num_neighbor, out_channels))
         self.neighbors = num_neighbor
         self.out_channels = out_channels
+        self.G = GumblerSinkhorn(int(down_sample*num_points), num_points)
 
 
     #Initial input is B * N * C * d ----> B * N1 * C * m
     def wFM_on_sphere(self, input_set, adj_mtr=None):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
+
+        ####Downsampling####
+        input_set=input_set.view(B, N, D*C)
+        N = int(down_sample*N)
+        input_set = self.G(input_set)
+        input_set.view(B, N, D, C)
+        ####Finish Downsampling####
+        
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
@@ -72,7 +98,7 @@ class wFMLayer(nn.Module):
         # sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
         # out = north_pole_cos_vmag + sin_vmag*normed_w
         ######End Code#####
-        return weighted_sum
+        return weighted_sum, N
 
     ## to do: implement inverse exponential mapping
     def forward(self, x, adj_mtr=None):
