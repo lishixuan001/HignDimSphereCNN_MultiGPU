@@ -55,7 +55,7 @@ def pairwise_distance(point_cloud):
     else:
         point_cloud_transpose = point_cloud.permute(0, 3, 2, 1)
         #torch.transpose(point_cloud, perm=[0, 2, 1])
-        point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
+        point_cloud_inner = torch.bmm(point_cloud, point_cloud_transpose)
         point_cloud_inner = -2*point_cloud_inner
         point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
         point_cloud_square_tranpose = point_cloud_square.permute(0, 3, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
