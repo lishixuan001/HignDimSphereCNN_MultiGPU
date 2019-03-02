@@ -92,7 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
     parser.add_argument('--grid', default=5 , type=int, metavar='N', help='grid of sdt')
-    parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
+    parser.add_argument('--sigma', default=0.5 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=1e-2 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--gpu', default='1,2',  type=str, metavar='XXX', help='GPU number')
