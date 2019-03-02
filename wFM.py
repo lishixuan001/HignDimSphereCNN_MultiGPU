@@ -19,6 +19,8 @@ class GumblerSinkhorn(nn.Module):
             e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
             e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
         print(torch.matmul(e_weight, input_set)).shape
+        print(e_weight.shape)
+        print(input_set.shape)
         return torch.matmul(e_weight, input_set)
 
     def forward(self, inputs):
@@ -59,7 +61,7 @@ class wFMLayer(nn.Module):
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
-        if adj_mtr is None:
+        if adj_mtr is None or self.down_sample != 1:
             adj_mtr=pairwise_distance(input_set)
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = torch.Tensor(k2).long()+idx
