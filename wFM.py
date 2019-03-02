@@ -60,8 +60,11 @@ class wFMLayer(nn.Module):
         transformed_w2 = weightNormalize(self.w2).transpose(1, 0)
         m=self.out_channels
         weighted = q_p_s * transformed_w1 
-        weighted = torch.sum(weighted, dim = -1)
-        weighted_sum = torch.matmul(weighted, transformed_w2)
+        weighted = torch.sum(weighted, dim = -1) # B*N*D*C
+        weighted_sum = torch.matmul(weighted, transformed_w2) 
+        st()
+
+
 
         ######Project points from tangent plane back to sphere######
         # v_mag = torch.norm(weighted_sum, dim=2)
