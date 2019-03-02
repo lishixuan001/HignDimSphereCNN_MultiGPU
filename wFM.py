@@ -8,6 +8,7 @@ from pdb import set_trace as st
 
 class GumblerSinkhorn(nn.Module):
     def __init__(self, dim_decrease, original_dim):
+        super(GumblerSinkhorn, self).__init__()
         self.u = nn.Parameter(torch.randn(dim_decrease, 1))
         self.v = nn.Parameter(torch.randn(original_dim, 1))
     
@@ -52,7 +53,7 @@ class wFMLayer(nn.Module):
         input_set = self.G(input_set)
         input_set.view(B, N, D, C)
         ####Finish Downsampling####
-        
+
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
