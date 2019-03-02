@@ -30,10 +30,10 @@ def eval(test_iterator, model, grid, sigma):
 
 
 def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
-    #logger=Logger(log_dir)
+    logger=Logger(log_dir)
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu
     model = ManifoldNet(10, 15, 512).cuda()
-    #model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=baselr)
     test_iterator = utils.load_data(test_data_dir, batch_size=10)
