@@ -49,7 +49,7 @@ class wFMLayer(nn.Module):
     def wFM_on_sphere(self, input_set, adj_mtr=None):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
-        if adj_mtr:
+        if adj_mtr is not None:
             print(self.w1)
 
         ####Downsampling####
