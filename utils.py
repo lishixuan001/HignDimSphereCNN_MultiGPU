@@ -76,7 +76,7 @@ def knn(adj_matrix, k=20, include_myself = False):
       nearest neighbors: (batch_size, num_points, k)
     """
     if include_myself:
-        nn_idx = np.argsort(adj_matrix.cpu().numpy(), axis=-1)[:,:,:k]
+        nn_idx = np.argsort(adj_matrix.detach().numpy(), axis=-1)[:,:,:k]
     else:
         nn_idx = np.argsort(adj_matrix, axis=-1)[:,:,1:k+1] #torch.nn.top_k(neg_adj, k=k)
     return nn_idx
