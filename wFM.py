@@ -63,6 +63,7 @@ class wFMLayer(nn.Module):
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
         if adj_mtr is None or self.down_sample != 1:
             adj_mtr=pairwise_distance(input_set)
+            print(adj_mtr[0])
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
         k2 = torch.Tensor(k2).long()+idx
         ptcld = input_set.view(B*N, D, C) #reshape pointset to BN * DC
@@ -90,9 +91,9 @@ class wFMLayer(nn.Module):
         transformed_w1 = weightNormalize(self.w1) 
 
 
-        if adj_mtr is not None:
-            print(transformed_w1)
-            st()
+        # if adj_mtr is not None:
+        #     print(transformed_w1)
+        #     st()
         transformed_w2 = weightNormalize(self.w2).transpose(1, 0)
         m=self.out_channels
         weighted = q_p_s * transformed_w1 
