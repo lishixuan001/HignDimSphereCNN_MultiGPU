@@ -18,9 +18,9 @@ class GumblerSinkhorn(nn.Module):
             e_weight = torch.exp(weight)
             e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
             e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
-        print(torch.matmul(e_weight, input_set)).shape
-        print(e_weight.shape)
-        print(input_set.shape)
+        # print(torch.matmul(e_weight, input_set)).shape
+        # print(e_weight.shape)
+        # print(input_set.shape)
         return torch.matmul(e_weight, input_set)
 
     def forward(self, inputs):
@@ -103,7 +103,7 @@ class wFMLayer(nn.Module):
         # sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
         # out = north_pole_cos_vmag + sin_vmag*normed_w
         ######End Code#####
-        return weighted_sum, N
+        return weighted_sum
 
     ## to do: implement inverse exponential mapping
     def forward(self, x, adj_mtr=None):
