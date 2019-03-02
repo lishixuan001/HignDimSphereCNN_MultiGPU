@@ -16,8 +16,8 @@ class GumblerSinkhorn(nn.Module):
         weight = self.u * self.v.transpose(1, 0)
         for i in range(times):
             e_weight = torch.exp(weight)
+            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True).transpose(1, 0)
             e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
-            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
         # print(torch.matmul(e_weight, input_set)).shape
         # print(e_weight.shape)
         # print(input_set.shape)
