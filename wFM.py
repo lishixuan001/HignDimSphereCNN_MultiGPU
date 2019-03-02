@@ -105,7 +105,7 @@ class Last(nn.Module):
         # theta_sin = theta_sin.view(B, N, D, C)
         # q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
         # ######End Code######
-        input_set = q_p_s
+        q_p_s = input_set
 
 
 
