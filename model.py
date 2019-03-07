@@ -33,7 +33,6 @@ class ManifoldNet(nn.Module):
         fm1 = fm1.permute(0, 3, 2, 1)
         fm1 = self.bn1(fm1)
         fm1 = fm1.permute(0, 3, 2, 1)
-        #print(fm1.shape)
         fm2 = self.wFM2(fm1)
         fm2 = F.relu(fm2)
         fm2 = fm2.permute(0, 3, 2, 1)

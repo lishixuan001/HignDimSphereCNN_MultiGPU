@@ -17,12 +17,15 @@ from logger import Logger
 
 #optim = torch.optim.SGD(model.parameters(), lr=1e-6)
 
-def eval(test_iterator, model, mesh):
+def eval(test_iterator, model, grid, sigma):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <=10:
             inputs = Variable(inputs).cuda()
-            outputs = model(inputs.unsqueeze(-1), mesh)
+            inputs = utils.sdt(inputs, grid, sigma)
+            inputs = inputs*inputs            
+            adj = utils.pairwise_distance(inputs)
+            outputs = model(inputs, adj) 
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
         else:
@@ -32,7 +35,6 @@ def eval(test_iterator, model, mesh):
 
 def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
     logger=Logger(log_dir)
-    mesh = utils.mesh_mat(grid)
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu
     model = ManifoldNet(10, 15, 512).cuda()
     model = torch.nn.DataParallel(model)
@@ -56,13 +58,13 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             loss.backward(retain_graph=True)
             optim.step()
             running_loss.append( loss.item() )
-            print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
-            if i % 60 == 10:
-                acc = eval(test_iterator, model, mesh)
-                print("Accuracy: "+str(acc))
+            if i % log_interval == 0:
+                print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
+                #acc = eval(test_iterator, model, grid, sigma)
+                #print("Accuracy: "+str(acc))
         end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
-        acc = eval(test_iterator, model, mesh)
+        acc = eval(test_iterator, model, grid, sigma)
         print("Epoch: "+str(epoch)+" finished, took "+str(end-start)+" seconds with loss: "+str(np.mean(running_loss))+" acc: "+str(acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
