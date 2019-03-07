@@ -9,10 +9,15 @@ from pdb import set_trace as st
 class ManifoldNet(nn.Module):
     def __init__(self, num_classes, num_neighbor, num_points):
         super(ManifoldNet, self).__init__()
-        self.wFM1 = wFM.wFMLayer(1, 20, num_neighbor, num_points).cuda()
-        self.wFM2 = wFM.wFMLayer(20, 40, num_neighbor, int(num_points)).cuda()
-        self.wFM3 = wFM.wFMLayer(40, 60, num_neighbor, int(num_points)).cuda()
-        self.last = wFM.Last(60, num_classes).cuda()
+        self.wFM1 = wFM.wFMLayer(1, 20, num_neighbor, num_points)
+        self.wFM2 = wFM.wFMLayer(20, 40, num_neighbor, int(num_points), 0.9)
+        self.wFM3 = wFM.wFMLayer(40, 60, num_neighbor, int(num_points*0.9), 0.8)
+        self.last = wFM.Last()
+        self.linear2 = nn.Sequential(
+            nn.Linear(6000, 10),
+            nn.ReLU(),
+            nn.Linear(10, num_classes)
+        )
         
         ##DENSITY##
         self.bn1 = nn.BatchNorm2d(20)
