@@ -32,6 +32,7 @@ def eval(test_iterator, model, mesh):
 
 def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
     logger=Logger(log_dir)
+    mesh = utils.mesh_mat(grid)
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu
     model = ManifoldNet(10, 15, 512).cuda()
     model = torch.nn.DataParallel(model)
@@ -56,9 +57,12 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             optim.step()
             running_loss.append( loss.item() )
             print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
+            if i % 60 == 10:
+                acc = eval(test_iterator, model, mesh)
+                print("Accuracy: "+str(acc))
         end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
-        acc = eval(test_iterator, model, grid, sigma)
+        acc = eval(test_iterator, model, mesh)
         print("Epoch: "+str(epoch)+" finished, took "+str(end-start)+" seconds with loss: "+str(np.mean(running_loss))+" acc: "+str(acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
@@ -70,14 +74,14 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path', default='./mnistPC',  type=str, metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size', default=10 , type=int, metavar='N', help='Batch size of test set')
+    parser.add_argument('--batch_size', default=8 , type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
     parser.add_argument('--grid', default=10 , type=int, metavar='N', help='grid of sdt')
     parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=0.01 , type=float, metavar='N', help='sigma of sdt')
-    parser.add_argument('--gpu', default='2,3',  type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='5,2',  type=str, metavar='XXX', help='GPU number')
 
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
