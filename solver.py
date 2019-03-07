@@ -17,15 +17,16 @@ from logger import Logger
 
 #optim = torch.optim.SGD(model.parameters(), lr=1e-6)
 
-def eval(test_iterator, model, grid, sigma):
+def eval(test_iterator, model, mesh):
     acc_all = []
-    for (inputs, labels) in (test_iterator):
-        adj = utils.pairwise_distance(inputs).cuda()
-        inputs = Variable(inputs).cuda()
-        pred = model(utils.sdt(inputs, grid, sigma), adj)
-        pred = torch.argmax(pred, dim=-1)
-        acc_all.append(np.mean(pred.detach().cpu().numpy() == labels.numpy()))
-    return np.mean(acc_all)
+    for i, (inputs, labels) in enumerate(test_iterator):
+        if i <=10:
+            inputs = Variable(inputs).cuda()
+            outputs = model(inputs.unsqueeze(-1), mesh)
+            outputs = torch.argmax(outputs, dim=-1)
+            acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
+        else:
+            return np.mean(np.array(acc_all))
 
 
 
@@ -44,18 +45,12 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
         running_loss = []
         start = time.time()
         for i, (inputs, labels) in enumerate(train_iterator):
-            # get the inputs
-            #inputs, labels = data
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
-            # zero the parameter gradients
             optim.zero_grad()
             adj = utils.pairwise_distance(inputs)
-            # forward + backward + optimize
             inputs = utils.sdt(inputs, grid, sigma)
-            #inputs = inputs*inputs
+            inputs = inputs*inputs
             outputs = model(inputs, adj)
-            #st()
-            #print(outputs)
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
@@ -75,14 +70,14 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path', default='./mnistPC',  type=str, metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size', default=8 , type=int, metavar='N', help='Batch size of test set')
+    parser.add_argument('--batch_size', default=10 , type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
-    parser.add_argument('--grid', default=5 , type=int, metavar='N', help='grid of sdt')
+    parser.add_argument('--grid', default=10 , type=int, metavar='N', help='grid of sdt')
     parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
-    parser.add_argument('--baselr', default=0.05 , type=float, metavar='N', help='sigma of sdt')
-    parser.add_argument('--gpu', default='3,5',  type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--baselr', default=0.01 , type=float, metavar='N', help='sigma of sdt')
+    parser.add_argument('--gpu', default='2,3',  type=str, metavar='XXX', help='GPU number')
 
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
