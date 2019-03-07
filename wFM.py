@@ -93,9 +93,16 @@ class wFMLayer(nn.Module):
         return self.wFM_on_sphere(x, adj_mtr)
 
 class Last(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, out_channels):
         super(Last, self).__init__()
         #Initial input is B * N * D * C ----> B * N1 * D * C'
+        #self.linear = nn.Linear(in_channels, out_channels)
+        self.linear2 = nn.Sequential(
+            nn.Linear(6000, in_channels),
+            nn.ReLU(),
+            nn.Linear(in_channels, out_channels)
+        )
+
 
     #Initial input is B * N * C * d ----> B * N1 * C * m
     def FM_on_sphere(self, input_set):
@@ -117,11 +124,11 @@ class Last(nn.Module):
         q_p_s = input_set
         unweighted_sum = torch.mean(q_p_s, 3, keepdim= True) #B*N*D*C
         dist = torch.norm(unweighted_sum - q_p_s, p=2, dim=2) #B*N*C
+
         return torch.max(dist, dim = 1)[0] #B*C
     
     def forward(self, x):
-        st()
-        return torch.max(x.view(-1,x.shape[1],x.shape[2]*x.shape[3]), dim=1)[0]
+        return self.linear2(torch.max(x.view(-1,x.shape[1],x.shape[2]*x.shape[3]), dim=1)[0])
 
 def sdt(x, grid = 20, sigma = 1):
     dim = x.shape[2]

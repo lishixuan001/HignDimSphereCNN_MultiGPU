@@ -62,10 +62,6 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
                 print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
                 #acc = eval(test_iterator, model, grid, sigma)
                 #print("Accuracy: "+str(acc))
-                logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
-                logger.scalar_summary("accuracy", acc, epoch)
-                torch.save(model.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
-
         end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
         acc = eval(test_iterator, model, grid, sigma)
