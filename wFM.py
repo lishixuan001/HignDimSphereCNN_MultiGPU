@@ -6,30 +6,31 @@ from utils import *
 import h5py
 from pdb import set_trace as st
 
-class GumblerSinkhorn(nn.Module):
-    def __init__(self, dim_decrease, original_dim):
-        super(GumblerSinkhorn, self).__init__()
-        self.u = nn.Parameter(torch.randn(dim_decrease, 1))
-        self.v = nn.Parameter(torch.randn(original_dim, 1))
+# class GumblerSinkhorn(nn.Module):
+#     def __init__(self, dim_decrease, original_dim, T=0.1):
+#         super(GumblerSinkhorn, self).__init__()
+# #         self.u = nn.Parameter(torch.randperm(dim_decrease).float().unsqueeze(-1))
+# #         self.v = nn.Parameter(torch.randperm(original_dim).float().unsqueeze(-1))
+# #         self.u = nn.Parameter(torch.rand(dim_decrease, 1))
+# #         self.v = nn.Parameter(torch.rand(original_dim, 1))
+#         self.w = nn.Parameter(torch.rand(dim_decrease, original_dim))
+#         self.T = T
     
-    def transform(self, input_set, times=20):
-        e_weight = self.u * self.v.transpose(1, 0)
-        for i in range(times):
-            e_weight = torch.exp(e_weight)
-            e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
-            e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
-        # print(torch.matmul(e_weight, input_set)).shape
-        # print(e_weight.shape)
-        # print(input_set.shape)
-        return torch.matmul(e_weight, input_set)
+#     def transform(self, input_set, times=20):
+#         e_weight = self.w
+#         e_weight = torch.exp(e_weight/self.T)
+#         for i in range(times):
+#             e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
+#             e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
+#         return torch.matmul(e_weight, input_set)
 
-    def forward(self, inputs):
-        return self.transform(inputs)
+#     def forward(self, inputs):
+#         return self.transform(inputs)
 
 def weightNormalize(weights_in):
-    weights = weights_in**2
-    weights = weights/ torch.sum(weights, dim = 1, keepdim= True)
-    return weights #torch.stack(out_all)
+    #weights = weights_in**2
+    #weights = weights/ torch.sum(weights, dim = 1, keepdim= True)
+    return weights_in**2/ torch.sum(weights_in**2) #torch.stack(out_all)
 
 class wFMLayer(nn.Module):
     def __init__(self, in_channels, out_channels, num_neighbor, num_points, down_sample=1):
@@ -42,75 +43,86 @@ class wFMLayer(nn.Module):
         self.neighbors = num_neighbor
         self.out_channels = out_channels
         self.down_sample = down_sample
-        self.G = GumblerSinkhorn(int(down_sample*num_points), num_points)
+        self.linear = nn.Sequential(
+            nn.Conv2d(num_points, num_points, (25, in_channels)),
+            nn.Sigmoid(),
+            # nn.Linear(out_channels, out_channels)
+        )
+        #self.G = GumblerSinkhorn(int(down_sample*num_points), num_points)
 
 
     #Initial input is B * N * C * d ----> B * N1 * C * m
     def wFM_on_sphere(self, input_set, adj_mtr=None):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
-        st()
         ####Downsampling####
-        if self.down_sample != 1:
-            input_set=input_set.view(B, N, D*C)
-            N = int(self.down_sample*N)
-            input_set = self.G(input_set)
-            input_set.view(B, N, D, C)
+#         if self.down_sample != 1:
+#             input_set=input_set.view(B, N, D*C)
+#             N = int(self.down_sample*N)
+#             input_set = self.G(input_set)
+#             input_set = input_set.view(B, N, D, C)
         ####Finish Downsampling####
-
+        v = self.linear(input_set)
+        #view
+        input_set = input_set.view(B, N, D*C)
+        if self.down_sample != 1:
+            input_set = down_sampling(input_set, v.squeeze(), int(N*self.down_sample))
+            N = int(N*self.down_sample)
+        if adj_mtr is None:
+            adj_mtr=pairwise_distance(input_set)
+        input_set=input_set.view(B, N, D, C)
         k=self.neighbors #Tis is number of neighbors
         idx = torch.arange(B)*N #IDs for later processing, used because we flatten the tensor
         idx = idx.view((B, 1, 1)) #reshape to be added to knn indices
-        if adj_mtr is None or self.down_sample != 1:
-            print(input_set.shape)
-            adj_mtr=pairwise_distance(input_set[:, :, 0, :].squeeze(2))
-
-            print(adj_mtr[0])
+        
         k2 = knn(adj_mtr, k=k, include_myself=True) #B*N*k
+  
         k2 = torch.Tensor(k2).long()+idx
         ptcld = input_set.view(B*N, D, C) #reshape pointset to BN * DC
         ptcld = ptcld.view(B*N, D*C)
         gathered=ptcld[k2] #get matrix of dimension B*N*K*(D*C)
-        gathered = gathered.view(B, N, k, D, C)
+        gathered = gathered.view(B*N, k, D, C)
+        gathered = gathered.view(B,N,k,D,C)
 
         q_p_s = gathered
 
 
-        # #####Project points onto tangent plane on north pole######
-        # north_pole_cos = torch.zeros(gathered.shape).cuda()
-        # theta = torch.acos(torch.clamp(gathered[:, :, :, 0, :], -1, 1)) #this is of shape B*N*K*C
-        # eps = (torch.ones(theta.shape)*0.0001).cuda()
-        # theta_sin = theta / (torch.sin(theta) + eps ) #theta/sin(theta) B*N*K*D*C
-        # north_pole_cos[:, :, :, 0, :] = torch.cos(theta) #cos(theta)
-        # q_p = gathered - north_pole_cos #q-cos(theta)
-        # theta_sin = theta_sin.repeat(1, 1, 1, D) #should be of shape B*N*K*D*C
-        # theta_sin = theta_sin.view(B, N, k, D, C)
-        # q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
-        # #####End Code######
+        #####Project points onto tangent plane on north pole######
+        north_pole_cos = torch.zeros(gathered.shape).cuda()
+        theta = torch.acos(torch.clamp(gathered[:, :, :, 0, :], -1, 1)) #this is of shape B*N*K*C
+        eps = (torch.ones(theta.shape)*0.0001).cuda()
+        theta_sin = theta / (torch.sin(theta) + eps ) #theta/sin(theta) B*N*K*D*C
+        north_pole_cos[:, :, :, 0, :] = torch.cos(theta) #cos(theta)
+        q_p = gathered - north_pole_cos #q-cos(theta)
+        theta_sin = theta_sin.repeat(1, 1, 1, D) #should be of shape B*N*K*D*C
+        theta_sin = theta_sin.view(B, N, k, D, C)
+        q_p_s = torch.mul(q_p, theta_sin) #B*N*K*D*C
+        #####End Code######
 
         q_p_s = q_p_s.permute(0, 1, 3, 4, 2)
         #q_p_s = torch.transpose(q_p_s, 3, 4) #Reshape to B*N*D*C*k
-        transformed_w1 = weightNormalize(self.w1) 
+        #transformed_w1 = 
 
 
         # if adj_mtr is not None:
         #     print(transformed_w1)
         #     st()
-        transformed_w2 = weightNormalize(self.w2).transpose(1, 0)
+        #transformed_w2 = 
+        #st()
         m=self.out_channels
-        weighted = q_p_s * transformed_w1 
+        weighted = q_p_s * weightNormalize(self.w1)  
         weighted = torch.sum(weighted, dim = -1) # B*N*D*C
-        weighted_sum = torch.matmul(weighted, transformed_w2) 
+        weighted_sum = torch.matmul(weighted, weightNormalize(self.w2).transpose(1, 0)) 
 
 
-        # #####Project points from tangent plane back to sphere######
-        # v_mag = torch.norm(weighted_sum, dim=2)
-        # north_pole_cos_vmag = torch.zeros(weighted_sum.shape).cuda()
-        # north_pole_cos_vmag[:, :, 0, :] = torch.cos(v_mag)
-        # normed_w = F.normalize(weighted_sum, p=2, dim=2)
-        # sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
-        # out = north_pole_cos_vmag + sin_vmag*normed_w
-        # #####End Code#####
+        #####Project points from tangent plane back to sphere######
+        v_mag = torch.norm(weighted_sum, dim=2)
+        north_pole_cos_vmag = torch.zeros(weighted_sum.shape).cuda()
+        north_pole_cos_vmag[:, :, 0, :] = torch.cos(v_mag)
+        normed_w = F.normalize(weighted_sum, p=2, dim=2)
+        sin_vmag = torch.sin(v_mag).repeat(1, 1, D).view(B, N, D, m)
+        out = north_pole_cos_vmag + sin_vmag*normed_w
+        #####End Code#####
         return weighted_sum
 
     ## to do: implement inverse exponential mapping
@@ -121,11 +133,11 @@ class Last(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Last, self).__init__()
         #Initial input is B * N * D * C ----> B * N1 * D * C'
-        self.linear = nn.Linear(in_channels, out_channels)
+        #self.linear = nn.Linear(in_channels, out_channels)
         self.linear2 = nn.Sequential(
-            nn.Linear(in_channels, out_channels),
-            # nn.ReLU(),
-            # nn.Linear(out_channels, out_channels)
+            nn.Linear(1500, in_channels),
+            nn.ReLU(),
+            nn.Linear(in_channels, out_channels)
         )
 
 
@@ -134,23 +146,23 @@ class Last(nn.Module):
         #Input is B*N*D*C where B is batch size, N is number of points, D is dimension of each point, and C is input channel
         B, N, D, C = input_set.shape
 
-        #####Project points onto tangent plane on north pole#####
-        # north_pole_cos = torch.zeros(input_set.shape).cuda() #B*N*D*C
-        # theta = torch.acos(torch.clamp(input_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
-        # eps = (torch.ones(theta.shape)*0.0001).cuda()
-        # theta_sin = theta / (torch.sin(theta) + eps) #theta/sin(theta) B*N*K*D*C
-        # north_pole_cos[:, :, 0, :] = torch.cos(theta) #cos(theta)
-        # q_p = input_set - north_pole_cos #q-cos(theta)
-        # theta_sin = theta_sin.repeat(1, 1, D) #should be of shape B*N*K*D*C
-        # theta_sin = theta_sin.view(B, N, D, C)
-        # q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
-        ######End Code######
+        ####Project points onto tangent plane on north pole#####
+        north_pole_cos = torch.zeros(input_set.shape).cuda() #B*N*D*C
+        theta = torch.acos(torch.clamp(input_set[:, :, 0, :], -1, 1)) #this is of shape B*N*D*C
+        eps = (torch.ones(theta.shape)*0.0001).cuda()
+        theta_sin = theta / (torch.sin(theta) + eps) #theta/sin(theta) B*N*K*D*C
+        north_pole_cos[:, :, 0, :] = torch.cos(theta) #cos(theta)
+        q_p = input_set - north_pole_cos #q-cos(theta)
+        theta_sin = theta_sin.repeat(1, 1, D) #should be of shape B*N*K*D*C
+        theta_sin = theta_sin.view(B, N, D, C)
+        q_p_s = torch.mul(q_p, theta_sin) #B*N*D*C
+        #####End Code######
         q_p_s = input_set
-
-
-
+        #st()
         unweighted_sum = torch.mean(q_p_s, 3, keepdim= True) #B*N*D*C
+        #print(unweighted_sum)
         dist = torch.norm(unweighted_sum - q_p_s, p=2, dim=2) #B*N*C
+        #print(dist)
 
         return torch.max(dist, dim = 1)[0] #B*C
 
@@ -177,7 +189,8 @@ class Last(nn.Module):
     ## to do: implement inverse exponential mapping
     def forward(self, x):
         # print(self.wFM_on_sphere(x))
-        return self.linear(self.FM_on_sphere(x))
+        return self.linear2(torch.max(x.view(-1,x.shape[1],x.shape[2]*x.shape[3]), dim=1)[0])
+        #return self.linear2(self.FM_on_sphere(x))
 
 def sdt(x, grid = 20, sigma = 1):
     dim = x.shape[2]

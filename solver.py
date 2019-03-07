@@ -36,7 +36,7 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
     model = torch.nn.DataParallel(model)
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=baselr)
-    test_iterator = utils.load_data(test_data_dir, batch_size=10)
+    test_iterator = utils.load_data(test_data_dir, batch_size=25)
     train_iterator = utils.load_data(train_data_dir, batch_size=batch_size)
     t = len(train_iterator)
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
@@ -52,28 +52,15 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
             adj = utils.pairwise_distance(inputs)
             # forward + backward + optimize
             inputs = utils.sdt(inputs, grid, sigma)
-            inputs = inputs*inputs
-            #print(inputs[:10])
-            #st()
-
+            #inputs = inputs*inputs
             outputs = model(inputs, adj)
-            #print(1 in torch.isnan(outputs).numpy())
-            #print(labels.squeeze())
-            #loss = F.cross_entropy(outputs, labels.squeeze())
+            #st()
+            #print(outputs)
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
-            # file = open("log.txt","w+")
-            # file.write(str(loss.item()))
-            # file.close()
-            # print statistics
             running_loss.append( loss.item() )
             print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
-            # if i % log_interval == 0:
-
-            #     file = open("log.txt","w+")
-            #     file.write(str(loss.item()))
-            #     file.close()
         end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
         acc = eval(test_iterator, model, grid, sigma)
@@ -88,14 +75,14 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path', default='./mnistPC',  type=str, metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size', default=10 , type=int, metavar='N', help='Batch size of test set')
+    parser.add_argument('--batch_size', default=8 , type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
     parser.add_argument('--grid', default=5 , type=int, metavar='N', help='grid of sdt')
-    parser.add_argument('--sigma', default=0.5 , type=float, metavar='N', help='sigma of sdt')
+    parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=0.05 , type=float, metavar='N', help='sigma of sdt')
-    parser.add_argument('--gpu', default='1,2',  type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='3,5',  type=str, metavar='XXX', help='GPU number')
 
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
