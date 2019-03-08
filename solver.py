@@ -33,14 +33,15 @@ def eval(test_iterator, model, grid, sigma):
 
 
 
-def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu):
+def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu, neighbors):
     logger=Logger(log_dir)
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu
-    model = ManifoldNet(10, 15, 512).cuda()
+    
+    model = ManifoldNet(10, neighbors, 512).cuda()
     model = torch.nn.DataParallel(model)
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=baselr)
-    test_iterator = utils.load_data(test_data_dir, batch_size=25)
+    test_iterator = utils.load_data(test_data_dir, batch_size=batch_size)
     train_iterator = utils.load_data(train_data_dir, batch_size=batch_size)
     t = len(train_iterator)
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
@@ -50,18 +51,24 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
         for i, (inputs, labels) in enumerate(train_iterator):
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
             optim.zero_grad()
+            
             adj = utils.pairwise_distance(inputs)
+            knn_matrix = utils.knn(adj, k=neighbors, include_myself=True)
+            knn_matrix = torch.Tensor(knn_matrix).long()
+            
             inputs = utils.sdt(inputs, grid, sigma)
             inputs = inputs*inputs
-            outputs = model(inputs, adj)
+            outputs = model(inputs, knn_matrix)
+            
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
             running_loss.append( loss.item() )
+            print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
             if i % log_interval == 0:
-                print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
-                #acc = eval(test_iterator, model, grid, sigma)
-                #print("Accuracy: "+str(acc))
+                #print("Batch: "+str(i)+"/"+str(t)+" Epoch: "+str(epoch)+" Loss: "+str(np.mean(running_loss) ))
+                acc = eval(test_iterator, model, grid, sigma)
+                print("Accuracy: "+str(acc))
         end = time.time()
         #print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / (i+1)))
         acc = eval(test_iterator, model, grid, sigma)
@@ -76,16 +83,17 @@ def train(train_data_dir, test_data_dir, train_iter, log_interval, grid, sigma, 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path', default='./mnistPC',  type=str, metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size', default=8 , type=int, metavar='N', help='Batch size of test set')
+    parser.add_argument('--batch_size', default=15 , type=int, metavar='N', help='Batch size of test set')
     parser.add_argument('--max_epoch', default=200 , type=int, metavar='N', help='Epoch to run')
     parser.add_argument('--log_interval', default=10 , type=int, metavar='N', help='log_interval')
-    parser.add_argument('--grid', default=10 , type=int, metavar='N', help='grid of sdt')
+    parser.add_argument('--grid', default=5 , type=int, metavar='N', help='grid of sdt')
     parser.add_argument('--sigma', default=0.1 , type=float, metavar='N', help='sigma of sdt')
     parser.add_argument('--log_dir', default="./log_dir" , type=str, metavar='N', help='directory for logging')
     parser.add_argument('--baselr', default=0.01 , type=float, metavar='N', help='sigma of sdt')
-    parser.add_argument('--gpu', default='5,2',  type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu', default='3,2',  type=str, metavar='XXX', help='GPU number')
+    parser.add_argument('--neighbors', default=15, type=int, metavar='XXX', help='Number of Neighbors')
 
     args = parser.parse_args()
     test_data_dir = os.path.join(args.data_path, "test.hdf5")
     train_data_dir = os.path.join(args.data_path, "train.hdf5")
-    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr, args.gpu)
+    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr, args.gpu, args.neighbors)

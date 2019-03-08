@@ -9,15 +9,21 @@ from pdb import set_trace as st
 class ManifoldNet(nn.Module):
     def __init__(self, num_classes, num_neighbor, num_points):
         super(ManifoldNet, self).__init__()
-        self.wFM1 = wFM.wFMLayer(1, 20, num_neighbor, num_points)
-        self.wFM2 = wFM.wFMLayer(20, 40, num_neighbor, int(num_points), 0.9)
-        self.wFM3 = wFM.wFMLayer(40, 60, num_neighbor, int(num_points*0.9), 0.8)
-        self.last = wFM.Last(60, num_classes)
+        self.wFM1 = wFM.wFMLayer(1, 30, num_neighbor, num_points)
+        self.wFM2 = wFM.wFMLayer(30, 30, num_neighbor, num_points)
+        self.wFM3 = wFM.wFMLayer(30, 30, num_neighbor, num_points)
+        self.wFM4 = wFM.wFMLayer(30, 30, num_neighbor, num_points)
+        self.wFM5 = wFM.wFMLayer(30, 30, num_neighbor, num_points)  
+        
+        
+#         self.wFM2 = wFM.wFMLayer(30, 30, num_neighbor, int(num_points), 0.5)
+#         self.wFM3 = wFM.wFMLayer(30, 30, num_neighbor, int(num_points*0.5), 0.5)
+#         self.wFM4 = wFM.wFMLayer(30, 30, num_neighbor, int(int(num_points*0.5)*0.5), 0.5)
+#         self.wFM5 = wFM.wFMLayer(30, 30, num_neighbor, int(int(int(num_points*0.5)*0.5)*0.5), 0.5)               
+        self.last = wFM.Last(30, num_classes)
         
         ##DENSITY##
-        self.bn1 = nn.BatchNorm2d(20)
-        self.bn2 = nn.BatchNorm2d(40)
-        self.bn3 = nn.BatchNorm2d(60)
+        self.nl = wFM.Nonlinear()
         ###########
 
     def forward(self, x, neighborhood_matrix):
@@ -29,22 +35,16 @@ class ManifoldNet(nn.Module):
         
         ##DENSITY##
         fm1 = self.wFM1(x, neighborhood_matrix)
-        fm1 = F.relu(fm1)
-        fm1 = fm1.permute(0, 3, 2, 1)
-        fm1 = self.bn1(fm1)
-        fm1 = fm1.permute(0, 3, 2, 1)
-        fm2 = self.wFM2(fm1)
-        fm2 = F.relu(fm2)
-        fm2 = fm2.permute(0, 3, 2, 1)
-        fm2 = self.bn2(fm2)
-        fm2 = fm2.permute(0, 3, 2, 1)
-        fm3 = self.wFM3(fm2)
-        fm3 = F.relu(fm3)
-        fm3 = fm3.permute(0, 3, 2, 1)
-        fm3 = self.bn3(fm3)
-        fm3 = fm3.permute(0, 3, 2, 1)
+        fm1 = self.nl(fm1)
+        fm2 = self.wFM2(fm1, neighborhood_matrix)
+        fm2 = self.nl(fm2)
+        fm3 = self.wFM3(fm2, neighborhood_matrix)
+        fm3 = self.nl(fm3)
+        fm4 = self.wFM4(fm3, neighborhood_matrix)
+        fm4 = self.nl(fm4)
+        fm5 = self.wFM5(fm4, neighborhood_matrix)
+        fm5 = self.nl(fm5)
         ###########
-        fm3 = fm3.contiguous()
-        out = self.last(fm3)
+        out = self.last(fm5)
         return out
 
