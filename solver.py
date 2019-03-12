@@ -1,5 +1,4 @@
 from model import ManifoldNet
-import dataloader
 from torch.autograd import Variable
 import torch
 import torch.nn.functional as F
@@ -12,10 +11,7 @@ import h5py
 from pdb import set_trace as st
 import argparse
 from logger import Logger
-
-#trainloader = dataloader.getLoader("./mnistPC/train.hdf5", 80, 'train')
-
-#optim = torch.optim.SGD(model.parameters(), lr=1e-6)
+import torch.utils.data
 
 def eval(test_iterator, model, grid, sigma):
     acc_all = []
@@ -23,74 +19,121 @@ def eval(test_iterator, model, grid, sigma):
         if i <=10:
             inputs = Variable(inputs).cuda()
             inputs = utils.sdt(inputs, grid, sigma)
-            inputs = inputs*inputs            
-            adj = utils.pairwise_distance(inputs)
-            outputs = model(inputs, adj) 
+            inputs = inputs * inputs
+            outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
         else:
             return np.mean(np.array(acc_all))
 
 
+def train(params):
 
-def train(train_data_dir, test_data_dir, num_epochs, log_interval, grid, sigma, batch_size, log_dir, baselr, gpu, neighbors):
-    
+    print("Model Setting Up")
+
     # Logger Setup and OS Configuration
-    logger=Logger(log_dir)
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu
-    
-    # Model Setup
-    model = ManifoldNet(10, neighbors, 512).cuda()
-    model = torch.nn.DataParallel(model)
-    model = model.cuda()
-    
+    logger = Logger(params['log_dir'])
+    os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
+
+    print("Loading Data")
+
     # Load Data
-    test_iterator = utils.load_data(test_data_dir, batch_size=batch_size)
-    train_iterator = utils.load_data(train_data_dir, batch_size=batch_size)
-    
+    test_iterator = utils.load_data(params['test_dir'], batch_size=params['batch_size'])
+    train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
+
+    # Model Setup
+    model = ManifoldNet(10, params['num_neighbors'], params['num_points']).cuda()
+    #model = torch.nn.DataParallel(model)
+    model = model.cuda()
+
     # Model Configuration Setup
-    optim = torch.optim.Adam(model.parameters(), lr=baselr)
+    optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
-    
+
+    print("Start Training")
+
+    # results = dict()
+    # bins = np.linspace(0, 3.14 / 2, 10)
+
     # Iterate by Epoch
-    for epoch in range(num_epochs):  # loop over the dataset multiple times
+    for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
-            
+
+            print("--> Variable Setting up")
+
+            # print("===\n{}\n===".format(inputs))
+
             # Variable Setup
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
             optim.zero_grad()
-            
-            # Neighbor Data Preperation
-            adj = utils.pairwise_distance(inputs)
-            knn_matrix = utils.knn(adj, k=neighbors, include_myself=True)
-            knn_matrix = torch.Tensor(knn_matrix).long()
-            
+
+            print("--> Running Model")
+
             # Model Input/Output
-            inputs = utils.sdt(inputs, grid, sigma)
-            inputs = inputs*inputs
-            outputs = model(inputs, knn_matrix)
-            
+            #inputs = utils.sdt(inputs, params['grid'], params['sigma'])
+
+
+            # norm = torch.norm(inputs, p=2, dim=3) # B, N, C
+            # first_element = inputs[..., 0]
+            # thetas = torch.acos(torch.clamp(norm * first_element, -1, 1))
+
+            # print("[Thetas]: {}".format(thetas.size()))
+
+            # for i in range(len(thetas)):
+                # theta = thetas[i]
+                # label = str(labels[i])
+
+                # theta = theta.cpu().numpy()
+                # theta = theta.flatten()
+
+                # if label in results.keys():
+                    # results[label].extend(theta)
+                # else:
+                    # results[label] = list(theta)
+
+
+            # if len(results.keys()) >= 5 and batch_idx >= 5:
+
+                # print("====")
+                # for label in results:
+                    # print("\nClass {}".format(label))
+                    # theta = results[label]
+                    # result, _ = np.histogram(theta, bins=bins)
+                    # for i in range(len(result)):
+                        # percentage = result[i] / sum(result)
+                        # print("{}: {}%".format(round(bins[i], 3), round(percentage, 4)))
+
+                # print("====\nNumber of Classes: {}".format(len(results)))
+                # return
+
+            #inputs = inputs
+            # print(inputs.shape)
+            outputs = model(inputs)
+
+            print("--> Updating Model")
+
             # Update Loss and Do Backprop
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
             running_loss.append(loss.item())
-            
+
             # Update Loss Per Batch
             print("Batch: [{batch}/{total_batch}] Epoch: [{epoch}] Loss: [{loss}]".format(batch=batch_idx,
                                                                                          total_batch=len(train_iterator),
                                                                                          epoch=epoch,
                                                                                          loss=np.mean(running_loss)))
-            
+
             # Periodically Show Accuracy
-            if batch_idx % log_interval == 0:
-                acc = eval(test_iterator, model, grid, sigma)
-                print("Accuracy: [{}]\n".format(acc))
-  
-        acc = eval(test_iterator, model, grid, sigma)
+            #if batch_idx % params['log_interval'] == 0:
+             #   acc = eval(test_iterator, model, params['grid'], params['sigma'])
+              #  print("Accuracy: [{}]\n".format(acc))
+
+        #acc = eval(test_iterator, model, grid, sigma)
+        acc = 0.0
         print("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
-                                                                                      total_epoch=num_epochs,
+                                                                                      total_epoch=params['num_epochs'],
                                                                                       loss=np.mean(running_loss),
                                                                                       acc=acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
@@ -101,19 +144,24 @@ def train(train_data_dir, test_data_dir, num_epochs, log_interval, grid, sigma, 
     logger.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='HighDimSphere Train')
-    parser.add_argument('--data_path',    default='./mnistPC',  type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',   default=10 ,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--max_epoch',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
-    parser.add_argument('--log_interval', default=10 ,          type=int,   metavar='N',   help='log_interval')
-    parser.add_argument('--grid',         default=5 ,           type=int,   metavar='N',   help='grid of sdt')
-    parser.add_argument('--sigma',        default=0.1 ,         type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--log_dir',      default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
-    parser.add_argument('--baselr',       default=0.01 ,        type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--gpu',          default='3,2',        type=str,   metavar='XXX', help='GPU number')
-    parser.add_argument('--neighbors',    default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
 
-    args = parser.parse_args()
-    test_data_dir = os.path.join(args.data_path, "test.hdf5")
-    train_data_dir = os.path.join(args.data_path, "train.hdf5")
-    train(train_data_dir, test_data_dir, args.max_epoch, args.log_interval, args.grid, args.sigma, args.batch_size, args.log_dir, args.baselr, args.gpu, args.neighbors)
+    print("Loading Configurations")
+
+    args = utils.load_args()
+
+    params = dict(
+        train_dir = os.path.join(args.data_path, "train"),
+        test_dir  = os.path.join(args.data_path, "test"),
+        num_points     = args.num_points,
+        num_epochs     = args.num_epochs,
+        log_interval   = args.log_interval,
+        grid           = args.grid,
+        sigma          = args.sigma,
+        batch_size     = args.batch_size,
+        log_dir        = args.log_dir,
+        baselr         = args.baselr,
+        gpu            = args.gpu,
+        num_neighbors  = args.num_neighbors
+    )
+
+    train(params)

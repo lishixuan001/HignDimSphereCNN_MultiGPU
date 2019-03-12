@@ -3,13 +3,94 @@ import torch
 import h5py
 from pdb import set_trace as st
 import torch.nn as nn
+import argparse
+
+def load_args():
+    parser = argparse.ArgumentParser(description='HighDimSphere Train')
+    parser.add_argument('--data_path',     default='./mnistPC', type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--batch_size',    default=15 ,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
+    parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--grid',          default=5 ,           type=int,   metavar='N',   help='grid of sdt')
+    parser.add_argument('--sigma',         default=0.5 ,         type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--log_dir',       default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
+    parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--gpu',           default='1',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
+
+    args = parser.parse_args()
+    return args
+
+
+def data_generation(inputs, grid_size, sigma):
+    batch_size, num_points, dimension_size = inputs.size() # [B * N * D]
+
+    if dimension_size == 2:
+        print("--> Data Dimension Adjustment Operated")
+        zero_padding = torch.zeros((batch_size, num_points, 1), dtype=inputs.dtype)
+        inputs = torch.cat((inputs, zero_padding), -1)
+
+    print("--> Normalizing Raw Data")
+    inputs = raw_data_normalization(inputs)
+
+    print("--> Mapping and Normalization")
+    grid = grid_generation(grid_size)
+    inputs = map_and_norm(inputs, grid, sigma)
+
+    return inputs
+
+
+def raw_data_normalization(inputs):
+    inputs = nn.functional.normalize(inputs, p=2, dim=2, eps=1e-10)
+
+    # TODO: Check Dimension
+    print(inputs.size())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def sdt(inputs, grid, sigma):
     x = inputs
     dim = x.shape[2]
     num_point = x.shape[1]
-    linspace = np.linspace(-1,1,grid)
+
+    x_mean = torch.mean(x, dim=1, keepdim=True)
+    x = (x - x_mean)
+    x = x/torch.norm(x, dim=1, keepdim=True)
+    #x_std = torch.std(x, dim=1, keepdim=True)
+    #x = (x - x_mean)/(x_std+0.0001)
+    #x_min = torch.min(x, dim=1, keepdim=True)[0]
+    #x_max = torch.max(x, dim=1, keepdim=True)[0]
+    #x = (x - x_min)/(x_max - x_min)
+    linspace = np.linspace(-1.,1.,grid)
     mesh = linspace
+
     for i in range(dim-1):
         mesh = np.meshgrid(mesh, linspace)
     mesh = torch.from_numpy(np.array(mesh))#.cuda()
@@ -17,9 +98,10 @@ def sdt(inputs, grid, sigma):
 
     temp = x.unsqueeze(-1).repeat( 1,1,1,mesh.shape[-1])
     temp = temp - mesh.unsqueeze(0).unsqueeze(0).cuda()#torch.from_numpy(np.expand_dims(np.expand_dims(mesh, 0),0)).cuda()
+
     out = torch.sum(temp**2, -2)
-    out = torch.exp(-out/(2*sigma**2))
-    norms = torch.norm(out, dim = 2, keepdim=True)
+    out = torch.exp(-out / (2 * sigma**2 + 1e-10))
+    norms = torch.sum(out, dim = 2, keepdim=True)
     out = (out/norms).unsqueeze(-1)
     return out
 
@@ -27,7 +109,7 @@ def permuteBN(fm):
     fm = fm.permute(0,2,3,1)
     bn = nn.BatchNorm2d(fm.shape[1])
     return fm.permute(0,3,1,2)
-    
+
 def mesh_mat(grid, dim = 2):
     linspace = np.linspace(-1,1,grid)
     if dim ==2:
@@ -43,11 +125,11 @@ def mean_cov_map(input_set, mesh):
     delta = input_set - mesh.unsqueeze(0).unsqueeze(0).unsqueeze(0)
     wFM = torch.matmul(delta, delta.transpose(-1,-2))/mesh.shape[-1]
     wFM = wFM.view(input_set.shape[0], input_set.shape[1], input_set.shape[2], -1)
-    wFM = torch.cat([input_set[...,0],wFM], dim = -1)    
+    wFM = torch.cat([input_set[...,0],wFM], dim = -1)
     return wFM.transpose(-1,-2)
 
 def load_data(data_dir, batch_size, shuffle = True, num_workers=4):
-    train_data = h5py.File(data_dir , 'r')
+    train_data = h5py.File(data_dir + ".hdf5" , 'r')
     xs = np.array(train_data['data'])
     ys = np.array(train_data['labels'])
     train_loader = torch.utils.data.TensorDataset(torch.from_numpy(xs).float(), torch.from_numpy(ys).long())
@@ -104,10 +186,10 @@ def down_sampling(X, v, out_pts):
 
 def GumblerSinkhorn(input_set, u, v, times=20):
     e_weight = u * v.transpose(1, 0)
+    e_weight = torch.exp(e_weight)
     for i in range(times):
-        e_weight = torch.exp(e_weight)
         e_weight = e_weight / torch.sum(e_weight, dim=1, keepdim = True)
-        e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)    
+        e_weight = e_weight / torch.sum(e_weight, dim=0, keepdim = True)
     return torch.matmul(e_weight, input_set)
 
 def knn(adj_matrix, k=20, include_myself = False):
