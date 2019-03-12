@@ -23,7 +23,7 @@ class wFMLayer1(nn.Module):
 
         # Sequential
         self.linear = nn.Sequential(
-            nn.Conv2d(num_points, num_points, (30, in_channels)),
+            nn.Conv2d(num_points, num_points, (25, in_channels)),
             nn.Sigmoid(),
         )
 
@@ -33,7 +33,7 @@ class wFMLayer1(nn.Module):
         # print("---------------------------------\n[wFMLayer1]")
         # print("===\nSize: {}".format(self.w1.size()))
         # print("===\nWeight 1: \n{}\n".format(self.w1))
-
+        print(input_set.shape)
         # Get Dimensions of Input
         B, N, D, C = input_set.shape
         v = self.linear(input_set)
@@ -58,7 +58,10 @@ class wFMLayer1(nn.Module):
         gathered = gathered.permute(0, 1, 3, 4, 2) # [B * N * D * C * K]
 
         # Get Weighted Results
-        weighted = gathered * weightNormalize(self.w1)
+        weights_sqrd = self.w1 ** 2
+        weights_check = weights_sqrd / torch.sum(weights_sqrd, dim=1, keepdim=True)
+        
+        weighted = gathered * weights_check
         weighted = torch.sum(weighted, dim=-1) # [B * N * D * C]
 
         return weighted
@@ -80,8 +83,11 @@ class wFMLayer2(nn.Module):
         # print("---------------------------------\n[wFMLayer2]")
         # print("===\nSize: {}".format(self.w2.size()))
         # print("===\nWeight 2: \n{}\n".format(self.w2))
-
-        weighted_sum = torch.matmul(weighted, weightNormalize(self.w2))
+        #weighted_check = weightNormalize(self.w2)
+        weights_sqrd = self.w2**2
+        weighted_check = weights_sqrd / torch.sum(weights_sqrd, dim=0, keepdim=True)
+            
+        weighted_sum = torch.matmul(weighted, weighted_check)
         return weighted_sum
 
     def forward(self, weighted):
@@ -94,7 +100,7 @@ class Last(nn.Module):
         super(Last, self).__init__()
         self.points = num_points
         self.in_channels = in_channels
-        self.w = nn.Parameter(torch.rand(in_channels))
+        self.w = nn.Parameter(torch.rand(in_channels), requires_grad=True)
         self.linear2 = nn.Sequential(
             nn.Linear(in_channels*num_points, in_channels),
             nn.ReLU(),
@@ -108,7 +114,9 @@ class Last(nn.Module):
         # print("===\nWeight:\n{}\n===".format(self.w))
 
         B, N, D, C = input_set.shape
+        #st()
         weighted_mean = torch.sum(weightNormalize(self.w) * input_set, dim=3, keepdim=True)
+        #print(input_set)
         dist = torch.norm(weighted_mean - input_set, p=2, dim=2) # [B * N * C]
 
         return dist.view(-1, self.points*self.in_channels)#torch.max(dist, dim = 1)[0] # [B * C]

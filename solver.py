@@ -33,7 +33,7 @@ def train(params):
 
     # Logger Setup and OS Configuration
     logger = Logger(params['log_dir'])
-    os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
+    #os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
 
     print("Loading Data")
 
@@ -71,7 +71,7 @@ def train(params):
             print("--> Running Model")
 
             # Model Input/Output
-            #inputs = utils.sdt(inputs, params['grid'], params['sigma'])
+            inputs = utils.sdt(inputs, params['grid'], params['sigma'])
 
 
             # norm = torch.norm(inputs, p=2, dim=3) # B, N, C
@@ -114,6 +114,7 @@ def train(params):
             print("--> Updating Model")
 
             # Update Loss and Do Backprop
+            print(labels.squeeze().shape)
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
@@ -138,7 +139,7 @@ def train(params):
                                                                                       acc=acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
         logger.scalar_summary("accuracy", acc, epoch)
-        torch.save(model.state_dict(), os.path.join(log_dir, '_'.join(["manifold", str(epoch + 1)])))
+        torch.save(model.state_dict(), os.path.join(params['log_dir'], '_'.join(["manifold", str(epoch + 1)])))
 
     print('Finished Training')
     logger.close()
@@ -146,8 +147,21 @@ def train(params):
 if __name__ == '__main__':
 
     print("Loading Configurations")
+    
+    parser = argparse.ArgumentParser(description='HighDimSphere Train')
+    parser.add_argument('--data_path',     default='./mnistPC', type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--batch_size',    default=15 ,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
+    parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--grid',          default=5 ,           type=int,   metavar='N',   help='grid of sdt')
+    parser.add_argument('--sigma',         default=0.5 ,         type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--log_dir',       default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
+    parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--gpu',           default='1',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
 
-    args = utils.load_args()
+    args = parser.parse_args()
 
     params = dict(
         train_dir = os.path.join(args.data_path, "train"),
@@ -163,5 +177,6 @@ if __name__ == '__main__':
         gpu            = args.gpu,
         num_neighbors  = args.num_neighbors
     )
+    
 
     train(params)
