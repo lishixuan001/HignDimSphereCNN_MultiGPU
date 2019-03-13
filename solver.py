@@ -53,8 +53,8 @@ def train(params):
     print("Start Training")
 
     # FIXME : Theta Test
-    results = dict()
-    bins = np.linspace(0, 3.14 / 2, 10)
+    # results = dict()
+    # bins = np.linspace(0, 3.14 / 2, 10)
 
     # Iterate by Epoch
     for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
