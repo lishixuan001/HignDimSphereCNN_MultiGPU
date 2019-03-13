@@ -22,14 +22,12 @@ def load_args():
     args = parser.parse_args()
     return args
 
+def generate_spherical_grid(num_directions):
+    
+
 
 def data_generation(inputs, grid_size, sigma):
     batch_size, num_points, dimension_size = inputs.size() # [B * N * D]
-
-    if dimension_size == 2:
-        print("--> Data Dimension Adjustment Operated")
-        zero_padding = torch.zeros((batch_size, num_points, 1), dtype=inputs.dtype)
-        inputs = torch.cat((inputs, zero_padding), -1)
 
     print("--> Normalizing Raw Data")
     inputs = raw_data_normalization(inputs)
@@ -84,11 +82,13 @@ def sdt(inputs, grid, sigma):
     x_mean = torch.mean(x, dim=1, keepdim=True)
     x = (x - x_mean)
     x = x/torch.norm(x, dim=1, keepdim=True)
+    
     #x_std = torch.std(x, dim=1, keepdim=True)
     #x = (x - x_mean)/(x_std+0.0001)
     #x_min = torch.min(x, dim=1, keepdim=True)[0]
     #x_max = torch.max(x, dim=1, keepdim=True)[0]
     #x = (x - x_min)/(x_max - x_min)
+    
     linspace = np.linspace(-1.,1.,grid)
     mesh = linspace
 
@@ -160,15 +160,6 @@ def pairwise_distance(point_cloud):
     point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
     point_cloud_square_tranpose = point_cloud_square.permute(0, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
     return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
-        ##KL divergence is essentially dot product of P(i) and log(P(i)/Q(i))
-    # else:
-    #     point_cloud_transpose = point_cloud.permute(0, 3, 2, 1)
-    #     #torch.transpose(point_cloud, perm=[0, 2, 1])
-    #     point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)
-    #     point_cloud_inner = -2*point_cloud_inner
-    #     point_cloud_square = torch.sum( point_cloud**2, dim=-1, keepdim = True)
-    #     point_cloud_square_tranpose = point_cloud_square.permute(0, 3, 2, 1) #torch.transpose(point_cloud_square, perm=[0, 2, 1])
-    #     return point_cloud_square + point_cloud_inner + point_cloud_square_tranpose
 
 def down_sampling(X, v, out_pts):
     B = X.shape[0]

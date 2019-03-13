@@ -52,18 +52,12 @@ def train(params):
 
     print("Start Training")
 
-    # FIXME : Theta Test
-    # results = dict()
-    # bins = np.linspace(0, 3.14 / 2, 10)
-
     # Iterate by Epoch
     for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
 
             print("--> Variable Setting up")
-
-            # print("===\n{}\n===".format(inputs))
 
             # Variable Setup
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
@@ -72,50 +66,7 @@ def train(params):
             print("--> Running Model")
 
             # Model Input/Output
-            # inputs = utils.sdt(inputs, params['grid'], params['sigma'])
-            
-            inputs = utils.raw_data_normalization(inputs)
-            grid = utils.grid_generation(params['grid'])
-            inputs = utils.map_and_norm(inputs, grid, params['sigma'])
-            
-            """ Theta Test """
-#             norm = torch.norm(inputs, p=2, dim=3) # B, N, C
-#             first_element = inputs[..., 0]
-#             thetas = torch.acos(torch.clamp(norm * first_element, -1, 1))
-
-#             print("[Thetas]: {}".format(thetas.size()))
-
-#             for i in range(len(thetas)):
-#                 theta = thetas[i]
-#                 label = str(labels[i])
-
-#                 theta = theta.cpu().numpy()
-#                 theta = theta.flatten()
-
-#                 if label in results.keys():
-#                     results[label].extend(theta)
-#                 else:
-#                     results[label] = list(theta)
-
-
-#             if len(results.keys()) >= 5 and batch_idx >= 10:
-
-#                 print("====")
-#                 for label in results:
-#                     print("\nClass {}".format(label))
-#                     theta = results[label]
-#                     result, _ = np.histogram(theta, bins=bins)
-#                     for i in range(len(result)):
-#                         percentage = 100 * result[i] / sum(result)
-#                         angle_low = round(bins[i] / 3.14159 * 180 , 1)
-#                         angle_high = round(bins[i+1] / 3.14159 * 180 , 1)
-#                         print("[{}~{}]: {}%".format(angle_low, angle_high, round(percentage, 4)))
-
-#                 print("====\nNumber of Classes: {}".format(len(results)))
-#                 return
-            
-            """ Theta Test End"""
-        
+            inputs = utils.data_generation(inputs, params['grid'], params['sigma'])
             outputs = model(inputs)
 
             print("--> Updating Model")
