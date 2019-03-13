@@ -52,8 +52,9 @@ def train(params):
 
     print("Start Training")
 
-    # results = dict()
-    # bins = np.linspace(0, 3.14 / 2, 10)
+    # FIXME : Theta Test
+    results = dict()
+    bins = np.linspace(0, 3.14 / 2, 10)
 
     # Iterate by Epoch
     for epoch in range(params['num_epochs']):  # loop over the dataset multiple times
@@ -71,50 +72,55 @@ def train(params):
             print("--> Running Model")
 
             # Model Input/Output
-            inputs = utils.sdt(inputs, params['grid'], params['sigma'])
+            # inputs = utils.sdt(inputs, params['grid'], params['sigma'])
+            
+            inputs = utils.raw_data_normalization(inputs)
+            grid = utils.grid_generation(params['grid'])
+            inputs = utils.map_and_norm(inputs, grid, params['sigma'])
+            
+            """ Theta Test """
+#             norm = torch.norm(inputs, p=2, dim=3) # B, N, C
+#             first_element = inputs[..., 0]
+#             thetas = torch.acos(torch.clamp(norm * first_element, -1, 1))
+
+#             print("[Thetas]: {}".format(thetas.size()))
+
+#             for i in range(len(thetas)):
+#                 theta = thetas[i]
+#                 label = str(labels[i])
+
+#                 theta = theta.cpu().numpy()
+#                 theta = theta.flatten()
+
+#                 if label in results.keys():
+#                     results[label].extend(theta)
+#                 else:
+#                     results[label] = list(theta)
 
 
-            # norm = torch.norm(inputs, p=2, dim=3) # B, N, C
-            # first_element = inputs[..., 0]
-            # thetas = torch.acos(torch.clamp(norm * first_element, -1, 1))
+#             if len(results.keys()) >= 5 and batch_idx >= 10:
 
-            # print("[Thetas]: {}".format(thetas.size()))
+#                 print("====")
+#                 for label in results:
+#                     print("\nClass {}".format(label))
+#                     theta = results[label]
+#                     result, _ = np.histogram(theta, bins=bins)
+#                     for i in range(len(result)):
+#                         percentage = 100 * result[i] / sum(result)
+#                         angle_low = round(bins[i] / 3.14159 * 180 , 1)
+#                         angle_high = round(bins[i+1] / 3.14159 * 180 , 1)
+#                         print("[{}~{}]: {}%".format(angle_low, angle_high, round(percentage, 4)))
 
-            # for i in range(len(thetas)):
-                # theta = thetas[i]
-                # label = str(labels[i])
-
-                # theta = theta.cpu().numpy()
-                # theta = theta.flatten()
-
-                # if label in results.keys():
-                    # results[label].extend(theta)
-                # else:
-                    # results[label] = list(theta)
-
-
-            # if len(results.keys()) >= 5 and batch_idx >= 5:
-
-                # print("====")
-                # for label in results:
-                    # print("\nClass {}".format(label))
-                    # theta = results[label]
-                    # result, _ = np.histogram(theta, bins=bins)
-                    # for i in range(len(result)):
-                        # percentage = result[i] / sum(result)
-                        # print("{}: {}%".format(round(bins[i], 3), round(percentage, 4)))
-
-                # print("====\nNumber of Classes: {}".format(len(results)))
-                # return
-
-            #inputs = inputs
-            # print(inputs.shape)
+#                 print("====\nNumber of Classes: {}".format(len(results)))
+#                 return
+            
+            """ Theta Test End"""
+        
             outputs = model(inputs)
 
             print("--> Updating Model")
 
             # Update Loss and Do Backprop
-            print(labels.squeeze().shape)
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
@@ -127,12 +133,12 @@ def train(params):
                                                                                          loss=np.mean(running_loss)))
 
             # Periodically Show Accuracy
-            #if batch_idx % params['log_interval'] == 0:
-             #   acc = eval(test_iterator, model, params['grid'], params['sigma'])
-              #  print("Accuracy: [{}]\n".format(acc))
+            if batch_idx % params['log_interval'] == 0:
+               acc = eval(test_iterator, model, params['grid'], params['sigma'])
+               print("Accuracy: [{}]\n".format(acc))
 
-        #acc = eval(test_iterator, model, grid, sigma)
-        acc = 0.0
+        acc = eval(test_iterator, model, grid, sigma)
+        acc = eval(test_iterator, model, params['grid'], params['sigma'])
         print("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
                                                                                       total_epoch=params['num_epochs'],
                                                                                       loss=np.mean(running_loss),
@@ -147,21 +153,8 @@ def train(params):
 if __name__ == '__main__':
 
     print("Loading Configurations")
-    
-    parser = argparse.ArgumentParser(description='HighDimSphere Train')
-    parser.add_argument('--data_path',     default='./mnistPC', type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',    default=15 ,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
-    parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
-    parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
-    parser.add_argument('--grid',          default=5 ,           type=int,   metavar='N',   help='grid of sdt')
-    parser.add_argument('--sigma',         default=0.5 ,         type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--log_dir',       default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
-    parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--gpu',           default='1',        type=str,   metavar='XXX', help='GPU number')
-    parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
-
-    args = parser.parse_args()
+   
+    args = utils.load_args()
 
     params = dict(
         train_dir = os.path.join(args.data_path, "train"),

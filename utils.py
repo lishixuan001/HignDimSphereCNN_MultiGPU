@@ -7,16 +7,16 @@ import argparse
 
 def load_args():
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
-    parser.add_argument('--data_path',     default='./mnistPC', type=str,   metavar='XXX', help='Path to the model')
+    parser.add_argument('--data_path',     default='../mnistPC', type=str,   metavar='XXX', help='Path to the model')
     parser.add_argument('--batch_size',    default=15 ,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
-    parser.add_argument('--grid',          default=5 ,           type=int,   metavar='N',   help='grid of sdt')
-    parser.add_argument('--sigma',         default=0.5 ,         type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--grid',          default=15 ,          type=int,   metavar='N',   help='grid of sdt')
+    parser.add_argument('--sigma',         default= 0.01,       type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--log_dir',       default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
     parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
-    parser.add_argument('--gpu',           default='1',        type=str,   metavar='XXX', help='GPU number')
+    parser.add_argument('--gpu',           default='1',          type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
 
     args = parser.parse_args()
@@ -42,10 +42,38 @@ def data_generation(inputs, grid_size, sigma):
 
 
 def raw_data_normalization(inputs):
-    inputs = nn.functional.normalize(inputs, p=2, dim=2, eps=1e-10)
+    """
+    inputs: B * N * D
+    """
+    inputs = nn.functional.normalize(inputs, p=1, dim=2, eps=1e-10)
+    return inputs
+    
 
-    # TODO: Check Dimension
-    print(inputs.size())
+def grid_generation(grid_size):
+    linspace = np.linspace(-1, 1, grid_size)
+    grid = np.meshgrid(linspace, linspace)  # (2, grid_size, grid_size)
+    grid = torch.from_numpy(np.array(grid))
+    grid = grid.reshape(grid.size()[0], -1).float()  # (2, grid_size^2)
+    return grid.cuda()
+
+def map_and_norm(tensor_dataset, grid, sigma):
+    tensor_dataset_spread = tensor_dataset.unsqueeze(-1)  # (data_size, num_points, 2, 1)
+    tensor_dataset_spread = tensor_dataset_spread.repeat(
+        (1, 1, 1, grid.size()[-1]))  # (data_size, num_points, 2, grid_size^2)
+    grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 3, grid_size^3)
+    tensor_dataset_spread = tensor_dataset_spread - grid_spread  # (data_size, num_points, 2, grid_size^2)
+    tensor_dataset_spread_transpose = tensor_dataset_spread.transpose(2, 3)  # (data_size, num_points, grid_size^2, 2)
+    tensor_dataset_spread_transpose_norms = torch.norm(tensor_dataset_spread_transpose, dim=3, p=2,
+                                                       keepdim=True)  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = torch.div(tensor_dataset_spread_transpose_norms,
+                               -2.0 * np.power(sigma, 2))  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = torch.exp(tensor_dataset)  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = tensor_dataset.squeeze(-1)  # (data_size, num_points, grid_size^2)
+
+    """ Normalization (Mapping) """
+#     tensor_dataset = nn.functional.normalize(tensor_dataset, p=2, dim=2, eps=1e-10)
+
+    return tensor_dataset.unsqueeze(-1)
 
 
 
@@ -128,7 +156,7 @@ def mean_cov_map(input_set, mesh):
     wFM = torch.cat([input_set[...,0],wFM], dim = -1)
     return wFM.transpose(-1,-2)
 
-def load_data(data_dir, batch_size, shuffle = True, num_workers=4):
+def load_data(data_dir, batch_size, shuffle=True, num_workers=4):
     train_data = h5py.File(data_dir + ".hdf5" , 'r')
     xs = np.array(train_data['data'])
     ys = np.array(train_data['labels'])
