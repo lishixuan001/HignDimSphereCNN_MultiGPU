@@ -71,36 +71,9 @@ def map_and_norm(tensor_dataset, grid, sigma):
     tensor_dataset = tensor_dataset.squeeze(-1)  # (data_size, num_points, grid_size^2)
 
     """ Normalization (Mapping) """
-#     tensor_dataset = nn.functional.normalize(tensor_dataset, p=2, dim=2, eps=1e-10)
+    tensor_dataset = nn.functional.normalize(tensor_dataset, p=2, dim=2, eps=1e-10)
 
     return tensor_dataset.unsqueeze(-1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def sdt(inputs, grid, sigma):

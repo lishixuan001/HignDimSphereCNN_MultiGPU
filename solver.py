@@ -153,7 +153,7 @@ def train(params):
 if __name__ == '__main__':
 
     print("Loading Configurations")
-   
+    
     args = utils.load_args()
 
     params = dict(
