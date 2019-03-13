@@ -48,7 +48,9 @@ def raw_data_normalization(inputs):
     print(inputs.size())
 
 
-
+def sdt_sphere(inputs, num_angles, num_r):
+    angles = torch.rand(num_angles)
+    angles = angles / torch.sum(angles) * 2 * 3.14159
 
 
 
@@ -100,8 +102,12 @@ def sdt(inputs, grid, sigma):
     temp = temp - mesh.unsqueeze(0).unsqueeze(0).cuda()#torch.from_numpy(np.expand_dims(np.expand_dims(mesh, 0),0)).cuda()
 
     out = torch.sum(temp**2, -2)
+    grid_size = out.shape[2]
+    if type(sigma) != float:
+        sigma = sigma.unsqueeze(-1).repeat(1, grid_size)
+    
     out = torch.exp(-out / (2 * sigma**2 + 1e-10))
-    norms = torch.sum(out, dim = 2, keepdim=True)
+    norms = torch.sum(out, dim = 2, keepdim=True) + 1e-10
     out = (out/norms).unsqueeze(-1)
     return out
 

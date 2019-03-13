@@ -95,6 +95,67 @@ class wFMLayer2(nn.Module):
 
 
 
+class wFMLayer(nn.Module):
+    
+    def __init__(self, in_channels, out_channels, num_neighbors, num_points, down_sample_rate=1):
+        super(wFMLayer, self).__init__()
+
+        # Initialize Weights
+        self.w = nn.Parameter(torch.rand(in_channels, num_neighbors, out_channels))
+
+        # Configurations
+        self.k = num_neighbors
+        self.down_sample_rate = down_sample_rate
+        self.ins = in_channels
+        self.outs = out_channels
+        # Sequential
+        self.linear = nn.Sequential(
+            nn.Conv2d(num_points, num_points, (25, in_channels)),
+            nn.Sigmoid(),
+        )
+
+
+    def wFM_on_sphere(self, input_set, knn_matrix=None):
+
+        # print("---------------------------------\n[wFMLayer1]")
+        # print("===\nSize: {}".format(self.w1.size()))
+        # print("===\nWeight 1: \n{}\n".format(self.w1))
+        print(input_set.shape)
+        # Get Dimensions of Input
+        B, N, D, C = input_set.shape
+        v = self.linear(input_set)
+        input_set = input_set.view(B, N, D*C)
+
+        # Downsampling
+        if self.down_sample_rate != 1:
+            input_set = down_sampling(input_set, v.squeeze(), int(N * self.down_sample_rate))
+            N = int(N * self.down_sample_rate)
+
+        input_set = input_set.view(B, N, D, C)
+        idx = torch.arange(B) * N # IDs for later processing, used because we flatten the tensor
+        idx = idx.view((B, 1, 1)) # reshape to be added to knn indices
+
+        #combine in * k and normalize there
+        # Get [B * N * K * D * C]
+        k2 = knn_matrix + idx
+        ptcld = input_set.view(B*N, D, C) # [(B*N) * (D*C)]
+        ptcld = ptcld.view(B*N, D*C)
+        gathered = ptcld[k2] # [B * N * K * (D*C)]
+        gathered = gathered.view(B, N, self.k, D, C)
+
+        gathered = gathered.permute(0, 1, 3, 4, 2) # [B * N * D * C * K]
+        
+        normalized_w = self.w.view(self.ins*self.k, self.outs) ** 2
+        normalized_w = (normalized_w / torch.sum(normalized_w, dim=0))
+        gathered = gathered.contiguous()
+        gathered = gathered.view(B, N, D, C*self.k)
+        gathered = torch.matmul(gathered, normalized_w)
+        # Get Weighted Results # [B * N * D * C]
+
+        return gathered
+
+    def forward(self, x, knn_matrix):
+        return self.wFM_on_sphere(x, knn_matrix)
 class Last(nn.Module):
     def __init__(self, in_channels, out_channels, num_points):
         super(Last, self).__init__()

@@ -71,7 +71,7 @@ def train(params):
             print("--> Running Model")
 
             # Model Input/Output
-            inputs = utils.sdt(inputs, params['grid'], params['sigma'])
+            #inputs = utils.sdt(inputs, params['grid'], params['sigma'])
 
 
             # norm = torch.norm(inputs, p=2, dim=3) # B, N, C
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path',     default='./mnistPC', type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',    default=15 ,          type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--batch_size',    default=25 ,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
