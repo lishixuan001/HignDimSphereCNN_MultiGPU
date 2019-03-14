@@ -13,11 +13,12 @@ import argparse
 from logger import Logger
 import torch.utils.data
 
-def eval(test_iterator, model, grid, sigma):
+def eval(test_iterator, model, sigma, grid, num_directions, num_channels):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <=10:
             inputs = Variable(inputs).cuda()
+            inputs = utils.data_generation2(inputs, sigma, grid, num_directions, num_channels)
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -47,6 +48,8 @@ def train(params):
     # Model Configuration Setup
     optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
+    
+    grid = utils.grid_generation2(params['num_directions'], params['num_channels'])
 
     print("Start Training")
 
@@ -60,7 +63,7 @@ def train(params):
             optim.zero_grad()
 
             """ Model Input/Output """
-            inputs = utils.data_generation2(inputs, params['sigma'], params['num_directions'], params['num_channels'])
+            inputs = utils.data_generation2(inputs, params['sigma'], grid, params['num_directions'], params['num_channels'])
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 
@@ -77,11 +80,10 @@ def train(params):
 
             # Periodically Show Accuracy
             if batch_idx % params['log_interval'] == 0:
-               acc = eval(test_iterator, model, params['grid'], params['sigma'])
-               print("Accuracy: [{}]\n".format(acc))
+                acc = eval(test_iterator, model, params['sigma'], grid, params['num_directions'], params['num_channels'])
+                print("Accuracy: [{}]\n".format(acc))
 
-        acc = eval(test_iterator, model, grid, sigma)
-        acc = eval(test_iterator, model, params['grid'], params['sigma'])
+        acc = eval(test_iterator, model, params['sigma'], grid, params['num_directions'], params['num_channels'])
         print("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
                                                                                       total_epoch=params['num_epochs'],
                                                                                       loss=np.mean(running_loss),

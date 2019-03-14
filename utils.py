@@ -9,7 +9,7 @@ import math
 def load_args():
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path',     default='../mnistPC', type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',    default=5 ,           type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--batch_size',    default=20 ,          type=int,   metavar='N',   help='Batch size of test set')
     parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
     parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
     parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
@@ -20,20 +20,19 @@ def load_args():
     parser.add_argument('--gpu',           default='0,1',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
     parser.add_argument('--num_directions',default=25,           type=int,   metavar='XXX', help='Number of Directions')
-    parser.add_argument('--num_channels',  default=3,            type=int,   metavar='XXX', help='Number of Channels')
+    parser.add_argument('--num_channels',  default=5,            type=int,   metavar='XXX', help='Number of Channels')
 
     args = parser.parse_args()
     return args
 
 
-def data_generation2(inputs, sigma, num_directions, num_channels):
+def data_generation2(inputs, sigma, grid, num_directions, num_channels):
     inputs = raw_data_normalization(inputs)
-    grid = grid_generation2(num_directions, num_channels) # (2, R * T)
     inputs = map_and_norm2(inputs, grid, sigma, num_directions, num_channels)
     return inputs
     
     
-def grid_generation2(num_directions, num_channels):
+def grid_generation2(num_directions, num_channels, r_min=0.1):
     T, R = num_directions, num_channels
     
     # Randomly choose T directions
@@ -41,7 +40,7 @@ def grid_generation2(num_directions, num_channels):
     
     # Generate R values and Rescale tot [0.5, sqrt(2)]
     rs = torch.rand((R, 1)) # [R, 1]
-    rs = 0.5 + rs * (math.sqrt(2) - 0.5)
+    rs = r_min + rs * (math.sqrt(2) - r_min)
     rs = rs.repeat(1, T)
     
     xs = (torch.cos(thetas) * rs).unsqueeze(-1) 
@@ -66,7 +65,8 @@ def map_and_norm2(inputs, grid, sigma, T, R):
     inputs = inputs.view(B, N, R, T)  # (B, N, R, T)
     
     inputs = nn.functional.normalize(inputs, p=1, dim=3, eps=1e-10) # (B, N, R, T)
-    return inputs.transpose(3, 2) # (B, N, T, R)
+    inputs = inputs.transpose(3, 2) # (B, N, T, R)
+    return inputs
 
 
 def data_generation(inputs, grid_size, sigma):

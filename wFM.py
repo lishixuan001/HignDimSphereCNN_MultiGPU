@@ -11,55 +11,6 @@ def weight_normalize(weights):
     return weights ** 2 / torch.sum(weights, dim=0)
 
 
-
-class SigmaLayer(nn.Module):
-    
-    def __init__(self, batch_size, num_points, grid_size):
-        super(SigmaLayer, self).__init__()
-        
-        self.grid_size = grid_size
-        self.w = nn.Parameter(torch.rand(batch_size, num_points, 2)) # [B, N, 2]
-    
-    def sdt(self, inputs):
-        
-        # Raw Data Normalization
-        inputs = nn.functional.normalize(inputs, p=1, dim=2, eps=1e-10) # (B, N, 2)
-        
-        # Generate Sigma
-        weighted_coordinates = torch.sum(self.w * inputs, dim=2, keepdim=True) # (B, N, 1)
-        
-#         print("Sigma: {}".format(weighted_coordinates))
-        
-        sigma = weighted_coordinates.repeat(1, 1, self.grid_size ** 2) # (B, N, D)
-        
-        # Grid Generation
-        linspace = np.linspace(-1, 1, self.grid_size)
-        grid = np.meshgrid(linspace, linspace)  # (2, grid_size, grid_size)
-        grid = torch.from_numpy(np.array(grid))
-        grid = grid.reshape(grid.size()[0], -1).float().cuda()  # (2, grid_size^2)
-        
-        # Map and Norm
-        inputs_spread = inputs.unsqueeze(-1)  # (B. N, 2, 1)
-        inputs_spread = inputs_spread.repeat((1, 1, 1, grid.size()[-1]))  # (B, N, 2, grid_size^2)
-        grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 2, grid_size^2)
-        inputs_spread = inputs_spread - grid_spread  # (B, N, 2, grid_size^2)
-        inputs_spread_transpose = inputs_spread.transpose(2, 3)  # (B, N, grid_size^2, 2)
-        inputs_spread_transpose_norms = torch.norm(inputs_spread_transpose, dim=3, p=2)  # (B, N, grid_size^2)
-        
-        inputs = inputs_spread_transpose_norms / (-2.0 * torch.pow(sigma, 2))  # (B, N, grid_size^2)
-        inputs = torch.exp(inputs)  # (B, N, grid_size^2)
-
-        """ Normalization (Mapping) """
-        inputs = nn.functional.normalize(inputs, p=2, dim=2, eps=1e-10)
-
-        return inputs.unsqueeze(-1)
-        
-    
-    def forward(self, inputs):
-        return self.sdt(inputs)
-    
-    
-
 class wFMLayer(nn.Module):
     
     def __init__(self, in_channels, out_channels, num_neighbors, num_points, down_sample_rate=1):
@@ -67,12 +18,13 @@ class wFMLayer(nn.Module):
 
         # Initialize Weights
         self.w = nn.Parameter(torch.rand(in_channels, num_neighbors, out_channels))
-
+        
         # Configurations
         self.k = num_neighbors
         self.down_sample_rate = down_sample_rate
         self.in_channels = in_channels
         self.out_channels = out_channels
+        
         # Sequential
         self.linear = nn.Sequential(
             nn.Conv2d(num_points, num_points, (25, in_channels)),
@@ -121,9 +73,6 @@ class wFMLayer(nn.Module):
         return gathered
 
     def forward(self, x, knn_matrix):
-        
-        print("x size: {}".format(x.size()))
-        
         return self.wFM_on_sphere(x, knn_matrix)
     
     

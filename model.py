@@ -13,19 +13,11 @@ class ManifoldNet(nn.Module):
         self.k = num_neighbors
         self.points = num_points
         
-#         self.first_linear = nn.Linear(2, 10)
-#         self.second_linear = nn.Linear(10, 30)
-#         self.relu = nn.ReLU()
-#         self.softmax = nn.Softmax(dim=2)
-        
-        self.wFw1 = wFM.wFMLayer(3, 30, num_neighbors, num_points)
+        self.wFw1 = wFM.wFMLayer(5, 30, num_neighbors, num_points)
         self.wFw2 = wFM.wFMLayer(30, 40, num_neighbors, num_points)
         
         self.NL1 = wFM.Nonlinear()
         self.NL2 = wFM.Nonlinear()
-
-        # self.wFM3_1 = wFM.wFMLayer1(30, num_neighbors, num_points)
-        # self.wFM3_2 = wFM.wFMLayer2(30, 30)
 
         # self.wFM2 = wFM.wFMLayer(30, 30, num_neighbors, num_points)
         # self.wFM3 = wFM.wFMLayer(30, 30, num_neighbors, num_points)
@@ -34,10 +26,8 @@ class ManifoldNet(nn.Module):
         
         self.Last = wFM.Last(40, num_classes, 512)
        
-        self.sig = nn.Parameter(torch.ones(num_points)*0.01)
-
     def forward(self, inputs):
-        
+      
         adj = utils.pairwise_distance(inputs)
         knn_matrix = utils.knn(adj, k=self.k, include_myself=True)
         knn_matrix = torch.Tensor(knn_matrix).long()
@@ -60,11 +50,11 @@ class ManifoldNet(nn.Module):
         # fm5 = self.NonLinear(fm5)
 
 
-#         print("===========================")
-#         print("[Output]")
-#         print("Size: {}".format(out.size()))
-#         print("Tensor: {}".format(out))
-#         print("===========================")
+        print("===========================")
+        print("[Output]")
+        print("Size: {}".format(out.size()))
+        print("Tensor: {}".format(out))
+        print("===========================")
         
         return out
 
