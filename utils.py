@@ -4,6 +4,7 @@ import h5py
 from pdb import set_trace as st
 import torch.nn as nn
 import argparse
+import math
 
 def load_args():
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
@@ -22,18 +23,58 @@ def load_args():
     args = parser.parse_args()
     return args
 
-def generate_spherical_grid(num_directions):
-    pass
+
+
+def data_generation2(inputs, sigma, num_directions, num_channels):
+    inputs = raw_data_normalization(inputs)
+    grid = grid_generation2(num_directions, num_channels) # (2, R * T)
+    inputs = map_and_norm2(inputs, grid, sigma, num_directions, num_channels)
     
+    print(grid.size())
+    
+    return inputs
+    
+    
+def grid_generation2(num_directions, num_channels):
+    T, R = num_directions, num_channels
+    
+    # Randomly choose T directions
+    thetas = torch.rand((R, T)) * math.pi # [R * T]
+    
+    # Generate R values and Rescale tot [0.5, sqrt(2)]
+    rs = torch.rand((R, 1)) # [R, 1]
+    rs = 0.5 + rs * (torch.sqrt(2) - 0.5)
+    rs = rs.repeat(R, T)
+    
+    xs = (torch.cos(thetas) * rs).unsqueeze(-1) 
+    ys = (torch.sin(thetas) * rs).unsqueeze(-1)  # [R, T, 1]
+    
+    coordi = torch.cat(xs, ys, dim=2) # [R, T, 2]
+    return coordi.permute(2, 0, 1).view(2, R * T) # (2, R * T)
+    
+
+def map_and_norm2(inputs, grid, sigma, T, R):
+    # Map and Norm
+    B, N = inputs.size()[0], inputs.size()[1]
+    inputs_spread = inputs.unsqueeze(-1)  # (B. N, 2, 1)
+    inputs_spread = inputs_spread.repeat((1, 1, 1, grid.size()[-1]))  # (B, N, 2, R * T)
+    grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 2, R * T)
+    inputs_spread = inputs_spread - grid_spread  # (B, N, 2, R * T)
+    inputs_spread_transpose = inputs_spread.transpose(2, 3)  # (B, N, R * T, 2)
+    inputs_spread_transpose_norms = torch.norm(inputs_spread_transpose, dim=3, p=2)  # (B, N, R * T)
+
+    inputs = inputs_spread_transpose_norms / (-2.0 * torch.pow(sigma, 2))  # (B, N, R * T)
+    inputs = torch.exp(inputs)  # (B, N, R * T)
+    inputs = inputs.view(B, N, R, T)  # (B, N, R, T)
+    
+    inputs = nn.functional.normalize(inputs, p=1, dim=2, eps=1e-10)
+    
+
 
 
 def data_generation(inputs, grid_size, sigma):
     batch_size, num_points, dimension_size = inputs.size() # [B * N * D]
-
-    print("--> Normalizing Raw Data")
     inputs = raw_data_normalization(inputs)
-
-    print("--> Mapping and Normalization")
     grid = grid_generation(grid_size)
     inputs = map_and_norm(inputs, grid, sigma)
 
@@ -101,6 +142,7 @@ def sdt(inputs, grid, sigma):
     norms = torch.sum(out, dim = 2, keepdim=True)
     out = (out/norms).unsqueeze(-1)
     return out
+
 
 def permuteBN(fm):
     fm = fm.permute(0,2,3,1)
