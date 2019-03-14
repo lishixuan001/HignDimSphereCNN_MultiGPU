@@ -18,7 +18,7 @@ class ManifoldNet(nn.Module):
 #         self.relu = nn.ReLU()
 #         self.softmax = nn.Softmax(dim=2)
         
-        self.wFw1 = wFM.wFMLayer(1, 30, num_neighbors, num_points)
+        self.wFw1 = wFM.wFMLayer(3, 30, num_neighbors, num_points)
         self.wFw2 = wFM.wFMLayer(30, 40, num_neighbors, num_points)
         
         self.NL1 = wFM.Nonlinear()

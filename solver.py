@@ -60,7 +60,7 @@ def train(params):
             optim.zero_grad()
 
             """ Model Input/Output """
-            inputs = utils.data_generation(inputs, params['grid'], params['sigma'])
+            inputs = utils.data_generation2(inputs, params['sigma'], params['num_directions'], params['num_channels'])
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 
@@ -87,7 +87,7 @@ def train(params):
                                                                                       loss=np.mean(running_loss),
                                                                                       acc=acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
-        logger.scalar_summary("accuracy", acc, epoch)
+        logger.scalar_summary("accuracy", acc, epoZch)
         torch.save(model.state_dict(), os.path.join(params['log_dir'], '_'.join(["manifold", str(epoch + 1)])))
 
     print('Finished Training')
@@ -111,7 +111,9 @@ if __name__ == '__main__':
         log_dir        = args.log_dir,
         baselr         = args.baselr,
         gpu            = args.gpu,
-        num_neighbors  = args.num_neighbors
+        num_neighbors  = args.num_neighbors,
+        num_directions = args.num_directions,
+        num_channels   = args.num_channels
     )
     
 

@@ -19,19 +19,17 @@ def load_args():
     parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--gpu',           default='0,1',        type=str,   metavar='XXX', help='GPU number')
     parser.add_argument('--num_neighbors', default=15,           type=int,   metavar='XXX', help='Number of Neighbors')
+    parser.add_argument('--num_directions',default=25,           type=int,   metavar='XXX', help='Number of Directions')
+    parser.add_argument('--num_channels',  default=3,            type=int,   metavar='XXX', help='Number of Channels')
 
     args = parser.parse_args()
     return args
-
 
 
 def data_generation2(inputs, sigma, num_directions, num_channels):
     inputs = raw_data_normalization(inputs)
     grid = grid_generation2(num_directions, num_channels) # (2, R * T)
     inputs = map_and_norm2(inputs, grid, sigma, num_directions, num_channels)
-    
-    print(grid.size())
-    
     return inputs
     
     
@@ -39,18 +37,18 @@ def grid_generation2(num_directions, num_channels):
     T, R = num_directions, num_channels
     
     # Randomly choose T directions
-    thetas = torch.rand((R, T)) * math.pi # [R * T]
+    thetas = torch.rand((R, T)) * 2 * math.pi # [R * T]
     
     # Generate R values and Rescale tot [0.5, sqrt(2)]
     rs = torch.rand((R, 1)) # [R, 1]
-    rs = 0.5 + rs * (torch.sqrt(2) - 0.5)
-    rs = rs.repeat(R, T)
+    rs = 0.5 + rs * (math.sqrt(2) - 0.5)
+    rs = rs.repeat(1, T)
     
     xs = (torch.cos(thetas) * rs).unsqueeze(-1) 
     ys = (torch.sin(thetas) * rs).unsqueeze(-1)  # [R, T, 1]
     
-    coordi = torch.cat(xs, ys, dim=2) # [R, T, 2]
-    return coordi.permute(2, 0, 1).view(2, R * T) # (2, R * T)
+    coordi = torch.cat((xs, ys), dim=2) # [R, T, 2]
+    return coordi.permute(2, 0, 1).view(2, R * T).cuda() # (2, R * T)
     
 
 def map_and_norm2(inputs, grid, sigma, T, R):
@@ -63,13 +61,12 @@ def map_and_norm2(inputs, grid, sigma, T, R):
     inputs_spread_transpose = inputs_spread.transpose(2, 3)  # (B, N, R * T, 2)
     inputs_spread_transpose_norms = torch.norm(inputs_spread_transpose, dim=3, p=2)  # (B, N, R * T)
 
-    inputs = inputs_spread_transpose_norms / (-2.0 * torch.pow(sigma, 2))  # (B, N, R * T)
+    inputs = inputs_spread_transpose_norms / (-2.0 * math.pow(sigma, 2))  # (B, N, R * T)
     inputs = torch.exp(inputs)  # (B, N, R * T)
     inputs = inputs.view(B, N, R, T)  # (B, N, R, T)
     
-    inputs = nn.functional.normalize(inputs, p=1, dim=2, eps=1e-10)
-    
-
+    inputs = nn.functional.normalize(inputs, p=1, dim=3, eps=1e-10) # (B, N, R, T)
+    return inputs.transpose(3, 2) # (B, N, T, R)
 
 
 def data_generation(inputs, grid_size, sigma):
@@ -179,7 +176,7 @@ def load_data(data_dir, batch_size, shuffle=True, num_workers=4):
 def pairwise_distance(point_cloud):
     """Compute pairwise distance of a point cloud.
     Args:
-      point_cloud: tensor (batch_size, num_points, num_dims)
+      point_cloud: tensor (batch_size, num_points, num_dims, num_channels)
     Returns:
       pairwise distance: (batch_size, num_points, num_points)
     """
@@ -190,7 +187,9 @@ def pairwise_distance(point_cloud):
 
     if len(point_cloud.shape) == 4:
         a, b, c, d = point_cloud.shape
-        point_cloud = point_cloud.view(a, b, c*d)
+        point_cloud = point_cloud.contiguous()
+        point_cloud = point_cloud.view(a, b, c * d)
+        
     point_cloud_transpose = point_cloud.permute(0, 2, 1)
     #torch.transpose(point_cloud, perm=[0, 2, 1])
     point_cloud_inner = torch.matmul(point_cloud, point_cloud_transpose)

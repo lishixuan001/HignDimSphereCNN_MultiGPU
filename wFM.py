@@ -89,6 +89,7 @@ class wFMLayer(nn.Module):
         # Get Dimensions of Input
         B, N, D, C = input_set.shape
         v = self.linear(input_set)
+        input_set = input_set.contiguous()
         input_set = input_set.view(B, N, D*C)
 
         # Downsampling
@@ -120,6 +121,9 @@ class wFMLayer(nn.Module):
         return gathered
 
     def forward(self, x, knn_matrix):
+        
+        print("x size: {}".format(x.size()))
+        
         return self.wFM_on_sphere(x, knn_matrix)
     
     
