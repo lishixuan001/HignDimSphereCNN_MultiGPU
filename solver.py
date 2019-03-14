@@ -18,8 +18,6 @@ def eval(test_iterator, model, grid, sigma):
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <=10:
             inputs = Variable(inputs).cuda()
-            inputs = utils.sdt(inputs, grid, sigma)
-            inputs = inputs * inputs
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -42,7 +40,7 @@ def train(params):
     train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
 
     # Model Setup
-    model = ManifoldNet(10, params['num_neighbors'], params['num_points']).cuda()
+    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], params['batch_size'], params['grid']).cuda()
     #model = torch.nn.DataParallel(model)
     model = model.cuda()
 
@@ -57,21 +55,15 @@ def train(params):
         running_loss = []
         for batch_idx, (inputs, labels) in enumerate(train_iterator):
 
-            print("--> Variable Setting up")
-
-            # Variable Setup
+            """ Variable Setup """
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
             optim.zero_grad()
 
-            print("--> Running Model")
-
-            # Model Input/Output
+            """ Model Input/Output """
             inputs = utils.data_generation(inputs, params['grid'], params['sigma'])
             outputs = model(inputs)
 
-            print("--> Updating Model")
-
-            # Update Loss and Do Backprop
+            """ Update Loss and Do Backprop """ 
             loss = cls_criterion(outputs, labels.squeeze())
             loss.backward(retain_graph=True)
             optim.step()
