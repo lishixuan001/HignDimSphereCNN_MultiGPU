@@ -41,7 +41,8 @@ def train(params):
     train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
 
     # Model Setup
-    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], params['batch_size'], params['grid']).cuda()
+    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], 
+                        params['batch_size'], params['grid'], params['num_directions']).cuda()
     #model = torch.nn.DataParallel(model)
     model = model.cuda()
 
@@ -60,10 +61,11 @@ def train(params):
 
             """ Variable Setup """
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
+            print(labels)
             optim.zero_grad()
 
             """ Model Input/Output """
-            inputs = utils.data_generation2(inputs, params['sigma'], grid, params['num_directions'], params['num_channels'])
+            inputs = utils.data_generation2(inputs, params['sigma'], grid, params['num_directions'], params['num_channels'])            
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 

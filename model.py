@@ -7,14 +7,14 @@ import utils
 from pdb import set_trace as st
 
 class ManifoldNet(nn.Module):
-    def __init__(self, num_classes, num_neighbors, num_points, batch_size, grid_size):
+    def __init__(self, num_classes, num_neighbors, num_points, batch_size, grid_size, num_dims):
         super(ManifoldNet, self).__init__()
 
         self.k = num_neighbors
         self.points = num_points
         
-        self.wFw1 = wFM.wFMLayer(5, 30, num_neighbors, num_points)
-        self.wFw2 = wFM.wFMLayer(30, 40, num_neighbors, num_points)
+        self.wFw1 = wFM.wFMLayer(5, 30, num_neighbors, num_points, num_dims, down_sample_rate=1)
+        self.wFw2 = wFM.wFMLayer(30, 40, num_neighbors, num_points, num_dims, down_sample_rate=1)
         
         self.NL1 = wFM.Nonlinear()
         self.NL2 = wFM.Nonlinear()
@@ -24,23 +24,19 @@ class ManifoldNet(nn.Module):
         # self.wFM4 = wFM.wFMLayer(30, 30, num_neighbors, num_points)
         # self.wFM5 = wFM.wFMLayer(30, 30, num_neighbors, num_points)
         
-        self.Last = wFM.Last(40, num_classes, 512)
+        self.Last = wFM.Last(40, num_classes, 512, num_dims)
        
     def forward(self, inputs):
         
 #         print("===\nInputs\n{}".format(inputs))
-      
-        adj = utils.pairwise_distance(inputs)
-        knn_matrix = utils.knn(adj, k=self.k, include_myself=True)
-        knn_matrix = torch.Tensor(knn_matrix).long()
         
-        fm1 = self.wFw1(inputs, knn_matrix)
+        fm1 = self.wFw1(inputs)
 #         print("===\nfm1-output\n{}".format(fm1))
         
 #         fm1 = self.NL1(fm1)
 #         print("===\nfm1-nonlinear\n{}".format(fm1))
         
-        fm2 = self.wFw2(fm1, knn_matrix)
+        fm2 = self.wFw2(fm1)
 #         print("===\nfm2-output\n{}".format(fm2))
         
 #         fm2 = self.NL2(fm2)
