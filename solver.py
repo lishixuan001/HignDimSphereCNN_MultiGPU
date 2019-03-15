@@ -12,13 +12,15 @@ from pdb import set_trace as st
 import argparse
 from logger import Logger
 import torch.utils.data
+import matplotlib.pyplot as plt
 
-def eval(test_iterator, model, sigma, grid, num_directions, num_channels):
+        
+def eval(test_iterator, model, sigma, grid):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <=10:
             inputs = Variable(inputs).cuda()
-            inputs = utils.data_generation2(inputs, sigma, grid, num_directions, num_channels)
+            inputs = utils.data_generation(inputs, grid, sigma)
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -32,7 +34,7 @@ def train(params):
 
     # Logger Setup and OS Configuration
     logger = Logger(params['log_dir'])
-    #os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
+    # os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
 
     print("Loading Data")
 
@@ -43,15 +45,12 @@ def train(params):
     # Model Setup
     model = ManifoldNet(10, params['num_neighbors'], params['num_points'], 
                         params['batch_size'], params['grid'], params['num_directions']).cuda()
-    #model = torch.nn.DataParallel(model)
     model = model.cuda()
 
     # Model Configuration Setup
     optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
     
-    grid = utils.grid_generation2(params['num_directions'], params['num_channels'])
-
     print("Start Training")
 
     # Iterate by Epoch
@@ -61,11 +60,31 @@ def train(params):
 
             """ Variable Setup """
             inputs, labels = Variable(inputs).cuda(), Variable(labels).cuda()
-            print(labels)
             optim.zero_grad()
 
             """ Model Input/Output """
-            inputs = utils.data_generation2(inputs, params['sigma'], grid, params['num_directions'], params['num_channels'])            
+                
+            # inputs = utils.data_generation_test(inputs, params['grid'], params['sigma'])
+            
+            inputs = utils.sdt_test(inputs, params['grid'], params['sigma'])
+            
+            x_length = inputs.size()[1]
+            y_length = inputs.size()[2]
+            
+            for i in range(inputs.size()[0]):
+                img = inputs[i]
+                fig, ax = plt.subplots(nrows=1, ncols=1)
+                for x_val in range(x_length):
+                    for y_val in range(y_length):
+                        ax.scatter(x_val, y_val, color=str(float(img[x_val][y_val])))
+
+                fig.savefig('./img2/[{}]-{}.png'.format(labels[i], i))
+                plt.close(fig)
+                
+            return
+        
+        
+        
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 
@@ -82,10 +101,10 @@ def train(params):
 
             # Periodically Show Accuracy
             if batch_idx % params['log_interval'] == 0:
-                acc = eval(test_iterator, model, params['sigma'], grid, params['num_directions'], params['num_channels'])
+                acc = eval(test_iterator, model, params['sigma'], params['grid'])
                 print("Accuracy: [{}]\n".format(acc))
 
-        acc = eval(test_iterator, model, params['sigma'], grid, params['num_directions'], params['num_channels'])
+        acc = eval(test_iterator, model, params['sigma'], params['grid'])
         print("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
                                                                                       total_epoch=params['num_epochs'],
                                                                                       loss=np.mean(running_loss),

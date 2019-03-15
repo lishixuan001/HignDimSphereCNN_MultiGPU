@@ -9,12 +9,12 @@ import math
 def load_args():
     parser = argparse.ArgumentParser(description='HighDimSphere Train')
     parser.add_argument('--data_path',     default='../mnistPC', type=str,   metavar='XXX', help='Path to the model')
-    parser.add_argument('--batch_size',    default=20 ,          type=int,   metavar='N',   help='Batch size of test set')
-    parser.add_argument('--num_epochs',    default=200 ,         type=int,   metavar='N',   help='Epoch to run')
-    parser.add_argument('--num_points',    default=512 ,         type=int,   metavar='N',   help='Number of points in a image')
-    parser.add_argument('--log_interval',  default=10 ,          type=int,   metavar='N',   help='log_interval')
-    parser.add_argument('--grid',          default=10 ,          type=int,   metavar='N',   help='grid of sdt')
-    parser.add_argument('--sigma',         default= 0.5,         type=float, metavar='N',   help='sigma of sdt')
+    parser.add_argument('--batch_size',    default=10,           type=int,   metavar='N',   help='Batch size of test set')
+    parser.add_argument('--num_epochs',    default=200,          type=int,   metavar='N',   help='Epoch to run')
+    parser.add_argument('--num_points',    default=512,          type=int,   metavar='N',   help='Number of points in a image')
+    parser.add_argument('--log_interval',  default=10,           type=int,   metavar='N',   help='log_interval')
+    parser.add_argument('--grid',          default=30,           type=int,   metavar='N',   help='grid of sdt')
+    parser.add_argument('--sigma',         default=0.05,          type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--log_dir',       default="./log_dir",  type=str,   metavar='N',   help='directory for logging')
     parser.add_argument('--baselr',        default=0.05 ,        type=float, metavar='N',   help='sigma of sdt')
     parser.add_argument('--gpu',           default='0,1',        type=str,   metavar='XXX', help='GPU number')
@@ -24,6 +24,103 @@ def load_args():
 
     args = parser.parse_args()
     return args
+
+def data_generation_test(inputs, grid_size, sigma):
+    result = sdt(inputs, grid_size, sigma).squeeze(-1) # [B, N, G^2, 1]
+    result = torch.sum(result, dim=1) # [B, G^2]
+    result = result.view(inputs.size()[0], grid_size, grid_size) # [B, G, G]
+    
+#     max_val = torch.max(result, dim=1, keepdim=True)[0]
+#     min_val = torch.min(result, dim=1, keepdim=True)[0]
+   
+#     result = (max_val - result) / (max_val - min_val)
+    result = result.unsqueeze(1) # [B, 1, G, G]
+    
+    return result
+      
+#     inputs = raw_data_normalization(inputs)
+#     grid = grid_generation_test(grid_size)
+#     inputs = map_and_norm_test(inputs, grid, sigma) # [B, 1, G^2]
+#     B = inputs.size()[0]
+#     return inputs.view(B, 1, grid_size, grid_size)
+
+
+def sdt_test(inputs, grid_size, sigma):
+    B, N, D = inputs.size() # [B, N, 2]
+    
+    # Raw Data Normalization
+    inputs = inputs.transpose(1, 2) # [B, 2, N]
+    max_val, _ = torch.max(inputs, dim=2, keepdim=True)
+    min_val, _ = torch.min(inputs, dim=2, keepdim=True) # [B, 2]
+    inputs = (max_val - inputs) / (max_val - min_val)
+    inputs = inputs.transpose(1, 2) # [B, N, 2]
+    
+    # Generate Grid -- [Hard Code, D=2]
+    linspace = torch.linspace(0, 1, steps=grid_size)
+    xv, yv = torch.meshgrid(linspace, linspace) # [G, G], [G, G]
+    xv, yv = xv.unsqueeze(-1), yv.unsqueeze(-1)
+    grid = torch.cat((xv, yv), dim=-1) # [G, G, 2]
+    grid = grid.view(-1, 2).cuda() # [G^2, 2]
+    
+    # Mapping
+    inputs = inputs.unsqueeze(2).repeat(1, 1, grid_size**2, 1) # [B, N, G^2, 2]
+    inputs = inputs - grid
+    inputs = torch.norm(inputs, p=2, dim=-1) # [B, N, G^2]
+    inputs = torch.div(inputs, -2*np.power(sigma, 2)+1e-10)
+    inputs = torch.exp(inputs) # [B, N, G^2]
+    
+    # Overlaying 
+    inputs = torch.sum(inputs, dim=1) # [B, G^2]
+    
+    max_val, _ = torch.max(inputs, dim=1, keepdim=True)
+    min_val, _ = torch.min(inputs, dim=1, keepdim=True) # [B, 1]
+    inputs = (max_val - inputs) / (max_val - min_val)
+    
+    inputs = inputs.view(B, grid_size, grid_size)
+    
+    
+    return inputs
+    
+    
+    
+
+
+def grid_generation_test(grid_size):
+    linspace = np.linspace(-1, 1, grid_size)
+    grid = np.meshgrid(linspace, linspace)  # (2, grid_size, grid_size)
+    grid = torch.from_numpy(np.array(grid))
+    grid = grid.reshape(grid.size()[0], -1).float()  # (2, grid_size^2)
+    return grid.cuda()
+
+
+def map_and_norm_test(tensor_dataset, grid, sigma):
+    tensor_dataset_spread = tensor_dataset.unsqueeze(-1)  # (data_size, num_points, 2, 1)
+    tensor_dataset_spread = tensor_dataset_spread.repeat(
+        (1, 1, 1, grid.size()[-1]))  # (data_size, num_points, 2, grid_size^2)
+    
+    
+    grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 2, grid_size^2)
+    tensor_dataset_spread = tensor_dataset_spread - grid_spread  # (data_size, num_points, 2, grid_size^2)
+    tensor_dataset_spread_transpose = tensor_dataset_spread.transpose(2, 3)  # (data_size, num_points, grid_size^2, 2)
+    tensor_dataset_spread_transpose_norms = torch.norm(tensor_dataset_spread_transpose, dim=3, p=2,
+                                                       keepdim=True)  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = torch.div(tensor_dataset_spread_transpose_norms,
+                               -2.0 * np.power(sigma, 2))  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = torch.exp(tensor_dataset)  # (data_size, num_points, grid_size^2, 1)
+    tensor_dataset = tensor_dataset.squeeze(-1)  # (data_size, num_points, grid_size^2)
+    
+    tensor_dataset = torch.sum(tensor_dataset, dim=1)  # (data_size, grid_size^2)
+    
+    
+    """ Normalization (Mapping) """
+    # tensor_dataset = nn.functional.normalize(tensor_dataset, p=1, dim=1, eps=1e-10)
+    max_val = torch.max(tensor_dataset, dim=1, keepdim=True)[0]
+    min_val = torch.min(tensor_dataset, dim=1, keepdim=True)[0]
+   
+    tensor_dataset = (max_val - tensor_dataset) / (max_val - min_val)
+
+    return tensor_dataset.unsqueeze(1) # (data_size, 1, grid_size^2)
+
 
 
 def data_generation2(inputs, sigma, grid, num_directions, num_channels):
@@ -74,7 +171,6 @@ def data_generation(inputs, grid_size, sigma):
     inputs = raw_data_normalization(inputs)
     grid = grid_generation(grid_size)
     inputs = map_and_norm(inputs, grid, sigma)
-
     return inputs
 
 
@@ -93,11 +189,12 @@ def grid_generation(grid_size):
     grid = grid.reshape(grid.size()[0], -1).float()  # (2, grid_size^2)
     return grid.cuda()
 
+
 def map_and_norm(tensor_dataset, grid, sigma):
     tensor_dataset_spread = tensor_dataset.unsqueeze(-1)  # (data_size, num_points, 2, 1)
     tensor_dataset_spread = tensor_dataset_spread.repeat(
         (1, 1, 1, grid.size()[-1]))  # (data_size, num_points, 2, grid_size^2)
-    grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 3, grid_size^3)
+    grid_spread = grid.unsqueeze(0).unsqueeze(0)  # (1, 1, 2, grid_size^2)
     tensor_dataset_spread = tensor_dataset_spread - grid_spread  # (data_size, num_points, 2, grid_size^2)
     tensor_dataset_spread_transpose = tensor_dataset_spread.transpose(2, 3)  # (data_size, num_points, grid_size^2, 2)
     tensor_dataset_spread_transpose_norms = torch.norm(tensor_dataset_spread_transpose, dim=3, p=2,
@@ -114,7 +211,7 @@ def map_and_norm(tensor_dataset, grid, sigma):
 
 
 def sdt(inputs, grid, sigma):
-    x = inputs
+    x = inputs # B*N*2
     dim = x.shape[2]
     num_point = x.shape[1]
 

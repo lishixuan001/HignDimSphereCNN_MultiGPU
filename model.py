@@ -13,7 +13,7 @@ class ManifoldNet(nn.Module):
         self.k = num_neighbors
         self.points = num_points
         
-        self.wFw1 = wFM.wFMLayer(5, 30, num_neighbors, num_points, num_dims, down_sample_rate=1)
+        self.wFw1 = wFM.wFMLayer(1, 30, num_neighbors, num_points, num_dims, down_sample_rate=1)
         self.wFw2 = wFM.wFMLayer(30, 40, num_neighbors, num_points, num_dims, down_sample_rate=1)
         
         self.NL1 = wFM.Nonlinear()
@@ -28,7 +28,7 @@ class ManifoldNet(nn.Module):
        
     def forward(self, inputs):
         
-#         print("===\nInputs\n{}".format(inputs))
+        print("===\nInputs Size: \n{}".format(inputs.size()))
         
         fm1 = self.wFw1(inputs)
 #         print("===\nfm1-output\n{}".format(fm1))
