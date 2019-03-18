@@ -34,7 +34,7 @@ def train(params):
 
     # Logger Setup and OS Configuration
     logger = Logger(params['log_dir'])
-    # os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
+    os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
 
     print("Loading Data")
 
@@ -43,8 +43,7 @@ def train(params):
     train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
 
     # Model Setup
-    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], 
-                        params['batch_size'], params['grid'], params['num_directions']).cuda()
+    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], params['grid']).cuda()
     model = model.cuda()
 
     # Model Configuration Setup
@@ -64,27 +63,7 @@ def train(params):
 
             """ Model Input/Output """
                 
-            # inputs = utils.data_generation_test(inputs, params['grid'], params['sigma'])
-            
-            inputs = utils.sdt_test(inputs, params['grid'], params['sigma'])
-            
-            x_length = inputs.size()[1]
-            y_length = inputs.size()[2]
-            
-            for i in range(inputs.size()[0]):
-                img = inputs[i]
-                fig, ax = plt.subplots(nrows=1, ncols=1)
-                for x_val in range(x_length):
-                    for y_val in range(y_length):
-                        ax.scatter(x_val, y_val, color=str(float(img[x_val][y_val])))
-
-                fig.savefig('./img2/[{}]-{}.png'.format(labels[i], i))
-                plt.close(fig)
-                
-            return
-        
-        
-        
+            inputs = utils.data_generation(inputs, params['grid'], params['sigma'])        
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 
@@ -134,9 +113,7 @@ if __name__ == '__main__':
         log_dir        = args.log_dir,
         baselr         = args.baselr,
         gpu            = args.gpu,
-        num_neighbors  = args.num_neighbors,
-        num_directions = args.num_directions,
-        num_channels   = args.num_channels
+        num_neighbors  = args.num_neighbors
     )
     
 
