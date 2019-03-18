@@ -12,12 +12,15 @@ from pdb import set_trace as st
 import argparse
 from logger import Logger
 import torch.utils.data
+import matplotlib.pyplot as plt
 
-def eval(test_iterator, model, grid, sigma):
+        
+def eval(test_iterator, model, sigma, grid):
     acc_all = []
     for i, (inputs, labels) in enumerate(test_iterator):
         if i <=10:
             inputs = Variable(inputs).cuda()
+            inputs = utils.data_generation(inputs, grid, sigma)
             outputs = model(inputs)
             outputs = torch.argmax(outputs, dim=-1)
             acc_all.append(np.mean(outputs.detach().cpu().numpy() == labels.numpy()))
@@ -31,7 +34,7 @@ def train(params):
 
     # Logger Setup and OS Configuration
     logger = Logger(params['log_dir'])
-    #os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
+    os.environ["CUDA_VISIBLE_DEVICES"] = params['gpu']
 
     print("Loading Data")
 
@@ -40,14 +43,13 @@ def train(params):
     train_iterator = utils.load_data(params['train_dir'], batch_size=params['batch_size'])
 
     # Model Setup
-    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], params['batch_size'], params['grid']).cuda()
-    #model = torch.nn.DataParallel(model)
+    model = ManifoldNet(10, params['num_neighbors'], params['num_points'], params['grid']).cuda()
     model = model.cuda()
 
     # Model Configuration Setup
     optim = torch.optim.Adam(model.parameters(), lr=params['baselr'])
     cls_criterion = torch.nn.CrossEntropyLoss().cuda()
-
+    
     print("Start Training")
 
     # Iterate by Epoch
@@ -60,7 +62,8 @@ def train(params):
             optim.zero_grad()
 
             """ Model Input/Output """
-            inputs = utils.data_generation(inputs, params['grid'], params['sigma'])
+                
+            inputs = utils.data_generation(inputs, params['grid'], params['sigma'])        
             outputs = model(inputs)
 
             """ Update Loss and Do Backprop """ 
@@ -77,17 +80,16 @@ def train(params):
 
             # Periodically Show Accuracy
             if batch_idx % params['log_interval'] == 0:
-               acc = eval(test_iterator, model, params['grid'], params['sigma'])
-               print("Accuracy: [{}]\n".format(acc))
+                acc = eval(test_iterator, model, params['sigma'], params['grid'])
+                print("Accuracy: [{}]\n".format(acc))
 
-        acc = eval(test_iterator, model, grid, sigma)
-        acc = eval(test_iterator, model, params['grid'], params['sigma'])
+        acc = eval(test_iterator, model, params['sigma'], params['grid'])
         print("Epoch: [{epoch}/{total_epoch}] Loss: [{loss}] Accuracy: [{acc}]".format(epoch=epoch,
                                                                                       total_epoch=params['num_epochs'],
                                                                                       loss=np.mean(running_loss),
                                                                                       acc=acc))
         logger.scalar_summary("running_loss", np.mean(running_loss), epoch)
-        logger.scalar_summary("accuracy", acc, epoch)
+        logger.scalar_summary("accuracy", acc, epoZch)
         torch.save(model.state_dict(), os.path.join(params['log_dir'], '_'.join(["manifold", str(epoch + 1)])))
 
     print('Finished Training')
